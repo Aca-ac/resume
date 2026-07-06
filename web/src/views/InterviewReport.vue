@@ -1,13 +1,14 @@
 <template>
   <div>
     <h2>Interview Report</h2>
-    <el-button type="primary" :loading="loading" @click="onGenerate">Generate Report</el-button>
+    <el-button type="primary" :loading="loading" @click="onGenerate">Regenerate Report</el-button>
     <el-card v-if="report" class="report"><pre>{{ report }}</pre></el-card>
+    <el-empty v-else-if="!loading" description="No report yet" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useInterviewStore } from "@/stores/interview";
 import { ElMessage } from "element-plus";
@@ -18,7 +19,7 @@ const sessionId = computed(() => Number(route.params.sessionId));
 const loading = ref(false);
 const report = ref("");
 
-async function onGenerate() {
+async function loadReport() {
   loading.value = true;
   try {
     const session = await interview.loadReport(sessionId.value);
@@ -28,6 +29,14 @@ async function onGenerate() {
   } finally {
     loading.value = false;
   }
+}
+
+onMounted(() => {
+  loadReport();
+});
+
+async function onGenerate() {
+  await loadReport();
 }
 </script>
 

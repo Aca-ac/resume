@@ -30,9 +30,4 @@ public class OpenAIProvider extends AbstractCompatibleLLMProvider {
     protected String model() {
         return llmConfig.getOpenai().getModel();
     }
-
-    @Override
-    protected String offlinePrefix() {
-        return "[offline-ai] ";
-    }
 }

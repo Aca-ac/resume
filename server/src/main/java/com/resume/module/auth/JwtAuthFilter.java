@@ -1,6 +1,7 @@
 package com.resume.module.auth;
 
 import com.resume.common.JwtUtils;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -32,8 +33,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
             try {
-                Long userId = jwtUtils.getUserId(token);
-                String username = jwtUtils.parse(token).get("username", String.class);
+                Claims claims = jwtUtils.parse(token);
+                Long userId = Long.parseLong(claims.getSubject());
                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                         userId, null, Collections.emptyList());
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

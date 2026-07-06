@@ -4,10 +4,10 @@ import com.resume.config.AppProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @Slf4j
@@ -18,24 +18,28 @@ public class GlobalExceptionHandler {
     private final AppProperties appProperties;
 
     @ExceptionHandler(BusinessException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public Result<Void> handleBusiness(BusinessException ex) {
-        return Result.fail(ex.getErrorCode(), ex.getMessage());
+    public ResponseEntity<Result<Void>> handleBusiness(BusinessException ex) {
+        HttpStatus status = HttpStatus.resolve(ex.getErrorCode().getCode());
+        if (status == null) {
+            status = HttpStatus.BAD_REQUEST;
+        }
+        return ResponseEntity.status(status).body(Result.fail(ex.getErrorCode(), ex.getMessage()));
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, BindException.class})
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public Result<Void> handleValidation(Exception ex) {
-        return Result.fail(ErrorCode.BAD_REQUEST, "invalid request parameters");
+    public ResponseEntity<Result<Void>> handleValidation(Exception ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Result.fail(ErrorCode.BAD_REQUEST, "invalid request parameters"));
     }
 
     @ExceptionHandler(Exception.class)
-    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public Result<Void> handleOther(Exception ex) {
+    public ResponseEntity<Result<Void>> handleOther(Exception ex) {
         log.error("Unhandled exception", ex);
         if (appProperties.isExposeErrorDetails()) {
-            return Result.fail(ErrorCode.INTERNAL_ERROR, ex.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Result.fail(ErrorCode.INTERNAL_ERROR, ex.getMessage()));
         }
-        return Result.fail(ErrorCode.INTERNAL_ERROR, "internal server error");
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Result.fail(ErrorCode.INTERNAL_ERROR, "internal server error"));
     }
 }

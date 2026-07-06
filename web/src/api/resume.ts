@@ -1,4 +1,5 @@
 import request from "@/utils/request";
+import { downloadBlob } from "@/utils/download";
 import type { PageResult } from "@/types/api";
 import type { ResumeItem } from "@/stores/resume";
 
@@ -30,22 +31,12 @@ export async function exportResumePdf(id: number) {
   const blob = (await request.get(`/resumes/${id}/export/pdf`, {
     responseType: "blob"
   })) as Blob;
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `resume-${id}.pdf`;
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadBlob(blob, `resume-${id}.pdf`);
 }
 
 export async function exportResumeText(id: number) {
   const blob = (await request.get(`/resumes/${id}/export/text`, {
     responseType: "blob"
   })) as Blob;
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `resume-${id}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadBlob(blob, `resume-${id}.txt`);
 }

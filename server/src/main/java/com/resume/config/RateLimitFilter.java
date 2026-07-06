@@ -9,16 +9,28 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.time.Duration;
+import java.util.Collections;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 public class RateLimitFilter extends OncePerRequestFilter {
+
+    private static final DefaultRedisScript<Long> RATE_LIMIT_SCRIPT = new DefaultRedisScript<>(
+            """
+                    local count = redis.call('INCR', KEYS[1])
+                    if count == 1 then
+                      redis.call('EXPIRE', KEYS[1], ARGV[1])
+                    end
+                    return count
+                    """,
+            Long.class);
 
     private final StringRedisTemplate redisTemplate;
     private final AppProperties appProperties;
@@ -33,7 +45,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         if (path.startsWith("/api/v1/auth/login") || path.startsWith("/api/v1/auth/register")) {
             limit = appProperties.getRateLimit().getLoginMaxPerMinute();
-        } else if (path.contains("/optimize") || path.contains("/match/jd") || path.startsWith("/api/v1/interview")) {
+        } else if (!path.contains("/stream")
+                && (path.contains("/optimize") || path.contains("/match/jd") || path.startsWith("/api/v1/interview"))) {
             limit = appProperties.getRateLimit().getAiMaxPerMinute();
         }
 
@@ -49,10 +62,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private boolean isLimited(String path, String clientIp, int maxPerMinute) {
         String bucket = "rate:" + path + ":" + clientIp;
-        Long count = redisTemplate.opsForValue().increment(bucket);
-        if (count != null && count == 1L) {
-            redisTemplate.expire(bucket, Duration.ofMinutes(1));
-        }
+        Long count = redisTemplate.execute(
+                RATE_LIMIT_SCRIPT,
+                List.of(bucket),
+                String.valueOf(60));
         return count != null && count > maxPerMinute;
     }
 

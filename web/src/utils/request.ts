@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { type AxiosRequestConfig } from "axios";
 import { useAuthStore } from "@/stores/auth";
 import router from "@/router";
 
@@ -6,6 +6,21 @@ const request = axios.create({
   baseURL: "/api/v1",
   timeout: 30000
 });
+
+let refreshPromise: Promise<void> | null = null;
+
+function refreshAccessToken(): Promise<void> {
+  if (!refreshPromise) {
+    const auth = useAuthStore();
+    refreshPromise = auth
+      .refresh()
+      .then(() => undefined)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
 
 request.interceptors.request.use((config) => {
   const auth = useAuthStore();
@@ -25,11 +40,14 @@ request.interceptors.response.use(
   },
   async (error) => {
     const auth = useAuthStore();
-    if (error.response?.status === 401 && auth.refreshToken) {
+    const config = error.config as AxiosRequestConfig & { _retry?: boolean };
+    if (error.response?.status === 401 && auth.refreshToken && config && !config._retry) {
+      config._retry = true;
       try {
-        await auth.refresh();
-        error.config.headers.Authorization = `Bearer ${auth.accessToken}`;
-        return request(error.config);
+        await refreshAccessToken();
+        config.headers = config.headers ?? {};
+        config.headers.Authorization = `Bearer ${auth.accessToken}`;
+        return request(config);
       } catch {
         auth.logout();
         router.push("/login");

@@ -1,5 +1,8 @@
 package com.resume.ai;
 
+import com.resume.common.BusinessException;
+import com.resume.common.ErrorCode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StreamUtils;
@@ -11,6 +14,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Component
 public class PromptEngine {
 
@@ -25,8 +29,11 @@ public class PromptEngine {
     }
 
     private String extractSection(String templateName, String section) {
+        ClassPathResource resource = new ClassPathResource("ai/templates/" + templateName + ".yaml");
+        if (!resource.exists()) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "prompt template not found: " + templateName);
+        }
         try {
-            ClassPathResource resource = new ClassPathResource("ai/templates/" + templateName + ".yaml");
             String raw = StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
             Object loaded = yaml.load(raw);
             if (loaded instanceof Map<?, ?> map) {
@@ -35,9 +42,14 @@ public class PromptEngine {
                     return String.valueOf(value).trim();
                 }
             }
-        } catch (Exception ignored) {
+            log.warn("Prompt section '{}' missing in template '{}'", section, templateName);
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "prompt section missing: " + templateName + "/" + section);
+        } catch (BusinessException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.warn("Failed to parse prompt template {} section {}", templateName, section, ex);
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "prompt template parse failed: " + templateName);
         }
-        return section.equals("system") ? "You are a helpful assistant." : "${input}";
     }
 
     private String substitute(String template, Map<String, String> vars) {

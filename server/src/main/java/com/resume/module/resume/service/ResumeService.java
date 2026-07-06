@@ -66,6 +66,7 @@ public class ResumeService {
         return resume;
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long userId, Long id) {
         getOwned(userId, id);
         resumeMapper.deleteById(id);

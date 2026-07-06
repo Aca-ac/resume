@@ -1,6 +1,6 @@
 <template>
   <div class="auth-page">
-    <el-card class="card">
+    <el-card class="auth-card">
       <h2>Register</h2>
       <el-form :model="form" @submit.prevent="onSubmit">
         <el-form-item label="Username"><el-input v-model="form.username" /></el-form-item>
@@ -14,6 +14,7 @@
 </template>
 
 <script setup lang="ts">
+import "@/assets/auth.css";
 import { reactive, ref } from "vue";
 import { useAuthStore } from "@/stores/auth";
 import { useRouter } from "vue-router";
@@ -36,8 +37,3 @@ async function onSubmit() {
   }
 }
 </script>
-
-<style scoped>
-.auth-page { min-height: 100vh; display: grid; place-items: center; background: #f5f7fa; }
-.card { width: 420px; }
-</style>

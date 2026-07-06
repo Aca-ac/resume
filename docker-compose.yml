@@ -21,13 +21,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: resume-assistant-redis
-    command: sh -c "redis-server $${REDIS_PASSWORD:+--requirepass \"$$REDIS_PASSWORD\"}"
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    # Set REDIS_PASSWORD in .env and use: command: redis-server --requirepass ${REDIS_PASSWORD}
 
 volumes:
   mysql_data:

@@ -88,7 +88,7 @@ public class AIServiceFacade {
         }
         String name = llmConfig.getProvider() == null ? Constants.AiProvider.OPENAI : llmConfig.getProvider().toLowerCase(Locale.ROOT);
         return providers.stream()
-                .filter(p -> p.name().equalsIgnoreCase(name))
+                .filter(p -> p.name().equals(name))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("LLM provider not found: " + name));
     }

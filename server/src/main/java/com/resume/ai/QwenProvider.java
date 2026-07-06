@@ -30,9 +30,4 @@ public class QwenProvider extends AbstractCompatibleLLMProvider {
     protected String model() {
         return llmConfig.getQwen().getModel();
     }
-
-    @Override
-    protected String offlinePrefix() {
-        return "[qwen-offline] ";
-    }
 }
