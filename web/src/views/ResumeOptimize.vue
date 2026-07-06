@@ -1,12 +1,30 @@
 <template>
-  <div>
-    <h2>Optimize Resume</h2>
-    <el-form inline>
-      <el-form-item label="Target role"><el-input v-model="targetRole" /></el-form-item>
-      <el-button type="primary" :loading="loading" @click="onOptimize">Run AI Optimize</el-button>
-    </el-form>
-    <ResumePreview v-if="original" title="Original" :content="original.content" />
-    <ResumePreview v-if="optimized" title="Optimized" :content="optimized.content" class="optimized" />
+  <div class="optimize-page">
+    <h2 class="page-title">AI Resume Optimize</h2>
+    <el-card class="form-card animate-fade-up" shadow="never">
+      <el-form inline>
+        <el-form-item label="Target role">
+          <el-input v-model="targetRole" placeholder="e.g. Software Engineer" />
+        </el-form-item>
+        <el-button type="primary" :loading="loading" @click="onOptimize">
+          <span v-if="!loading">✨ Run AI Optimize</span>
+          <span v-else>Optimizing...</span>
+        </el-button>
+      </el-form>
+    </el-card>
+
+    <div class="previews">
+      <ResumePreview v-if="original" title="Original" :content="original.content" class="preview-original" />
+      <transition name="scale-fade">
+        <ResumePreview
+          v-if="optimized"
+          title="Optimized"
+          :content="optimized.content"
+          class="preview-optimized"
+          highlight
+        />
+      </transition>
+    </div>
   </div>
 </template>
 
@@ -36,7 +54,7 @@ async function onOptimize() {
   loading.value = true;
   try {
     optimized.value = await optimizeResume(Number(route.params.id), targetRole.value);
-    ElMessage.success("Optimized");
+    ElMessage.success("Optimized successfully");
   } catch (e: any) {
     ElMessage.error(e.message || "Optimize failed");
   } finally {
@@ -46,5 +64,27 @@ async function onOptimize() {
 </script>
 
 <style scoped>
-.optimized { margin-top: 16px; }
+.form-card {
+  border-radius: var(--app-radius);
+  margin-bottom: 20px;
+}
+
+.previews {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.preview-original {
+  animation: fadeUp 0.4s ease both;
+}
+
+.scale-fade-enter-active {
+  transition: all 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.scale-fade-enter-from {
+  opacity: 0;
+  transform: translateY(20px) scale(0.97);
+}
 </style>

@@ -1,9 +1,15 @@
 <template>
-  <div>
-    <h2>Interview Report</h2>
-    <el-button type="primary" :loading="loading" @click="onGenerate">Regenerate Report</el-button>
-    <el-card v-if="report" class="report"><pre>{{ report }}</pre></el-card>
-    <el-empty v-else-if="!loading" description="No report yet" />
+  <div class="report-page">
+    <div class="toolbar">
+      <h2 class="page-title">Interview Report</h2>
+      <el-button type="primary" :loading="loading" @click="onGenerate">Regenerate Report</el-button>
+    </div>
+    <transition name="scale-fade">
+      <el-card v-if="report" class="report-card animate-fade-up" shadow="hover">
+        <pre>{{ report }}</pre>
+      </el-card>
+    </transition>
+    <el-empty v-if="!report && !loading" description="No report yet" class="animate-fade-up" />
   </div>
 </template>
 
@@ -41,6 +47,35 @@ async function onGenerate() {
 </script>
 
 <style scoped>
-.report { margin-top: 16px; }
-pre { white-space: pre-wrap; }
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.toolbar .page-title {
+  margin: 0;
+}
+
+.report-card {
+  border-radius: var(--app-radius);
+  border-left: 4px solid #667eea;
+}
+
+.report-card pre {
+  white-space: pre-wrap;
+  margin: 0;
+  line-height: 1.7;
+  color: #606266;
+}
+
+.scale-fade-enter-active {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.scale-fade-enter-from {
+  opacity: 0;
+  transform: translateY(16px);
+}
 </style>
