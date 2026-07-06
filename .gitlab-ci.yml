@@ -21,31 +21,11 @@ cache:
 backend-test:
   stage: test
   image: maven:3.9-eclipse-temurin-17
-  services:
-    - name: mysql:8.0
-      alias: mysql
-    - name: redis:7-alpine
-      alias: redis
   variables:
-    MYSQL_ROOT_PASSWORD: root
-    MYSQL_DATABASE: resume_assistant
     MAVEN_OPTS: "-Dmaven.repo.local=${CI_PROJECT_DIR}/server/.m2/repository"
-  before_script:
-    - apt-get update -qq && apt-get install -y -qq mysql-client > /dev/null
-    - echo "Waiting for MySQL to be ready..."
-    - until mysqladmin ping -h mysql --silent; do sleep 2; done
-    - echo "MySQL is ready."
   script:
     - cd server
-    - mvn verify
-      -Dspring.datasource.url="jdbc:mysql://mysql:3306/resume_assistant?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC"
-      -Dspring.datasource.username=root
-      -Dspring.datasource.password=root
-      -Dspring.data.redis.host=redis
-      -Dspring.data.redis.port=6379
-      -Dspring.data.redis.password=
-      -DOPENAI_API_KEY=ci-placeholder
-      --no-transfer-progress
+    - mvn test --no-transfer-progress -B
   artifacts:
     when: always
     paths:
@@ -97,7 +77,7 @@ backend-docker:
         -f server/Dockerfile server/
       docker push "$IMAGE:$CI_COMMIT_REF_SLUG"
       docker push "$IMAGE:latest"
-      echo "✅ Backend image pushed: $IMAGE:$CI_COMMIT_REF_SLUG"
+      echo "Backend image pushed: $IMAGE:$CI_COMMIT_REF_SLUG"
   rules:
     - if: $CI_COMMIT_BRANCH == "gitlab-deploy"
     - if: $CI_COMMIT_TAG
@@ -114,7 +94,7 @@ frontend-docker:
         -f web/Dockerfile web/
       docker push "$IMAGE:$CI_COMMIT_REF_SLUG"
       docker push "$IMAGE:latest"
-      echo "✅ Frontend image pushed: $IMAGE:$CI_COMMIT_REF_SLUG"
+      echo "Frontend image pushed: $IMAGE:$CI_COMMIT_REF_SLUG"
   rules:
     - if: $CI_COMMIT_BRANCH == "gitlab-deploy"
     - if: $CI_COMMIT_TAG
