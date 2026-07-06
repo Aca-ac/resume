@@ -1,12 +1,26 @@
 # ─────────────────────────────────────────────────────
-# GitLab CI — 智通车 (Resume Assistant)
+# GitLab CI/CD — Resume Assistant (智通车)
 # ─────────────────────────────────────────────────────
+# Stages : test → docker
+# Branches: all branches run tests + docker build
+# Push    : gitlab-deploy branch / tags → GitLab Container Registry
+# ─────────────────────────────────────────────────────
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
 
 stages:
   - test
-  - docker-check
+  - docker
 
-# ── Global cache ────────────────────────────────────
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=${CI_PROJECT_DIR}/server/.m2/repository"
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_DRIVER: overlay2
+
 cache:
   key: ${CI_COMMIT_REF_SLUG}
   paths:
@@ -17,46 +31,25 @@ cache:
 #  Stage 1 — Test
 # ═══════════════════════════════════════════════════════
 
-# ── Backend (Java 17 + Maven) ────────────────────────
 backend-test:
   stage: test
   image: maven:3.9-eclipse-temurin-17
-  variables:
-    MAVEN_OPTS: "-Dmaven.repo.local=${CI_PROJECT_DIR}/server/.m2/repository"
-    MYSQL_ROOT_PASSWORD: root
-    MYSQL_DATABASE: resume_assistant
-    REDIS_HOST: redis
-  services:
-    - name: mysql:8.0
-      alias: mysql
-      variables:
-        MYSQL_ROOT_PASSWORD: root
-        MYSQL_DATABASE: resume_assistant
-    - name: redis:7-alpine
-      alias: redis
+  interruptible: true
   script:
     - cd server
-    - >
-      mvn verify -B
-      -Dspring.datasource.url="jdbc:mysql://mysql:3306/resume_assistant?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC"
-      -Dspring.datasource.username=root
-      -Dspring.datasource.password=root
-      -Dspring.data.redis.host=redis
-      -Dspring.data.redis.port=6379
-      -Dspring.data.redis.password=
-      -DOPENAI_API_KEY=ci-placeholder
-      --no-transfer-progress
+    - mvn test --no-transfer-progress -B
   artifacts:
     when: always
+    reports:
+      junit: server/target/surefire-reports/TEST-*.xml
     paths:
       - server/target/surefire-reports/
     expire_in: 7 days
-  coverage: '/Lines\s*:\s*(\d+(?:\.\d+)?)%/'
 
-# ── Frontend (Node 20 + Vite) ────────────────────────
 frontend-test:
   stage: test
   image: node:20-alpine
+  interruptible: true
   before_script:
     - cd web && npm ci --prefer-offline
   script:
@@ -69,25 +62,56 @@ frontend-test:
     expire_in: 1 day
 
 # ═══════════════════════════════════════════════════════
-#  Stage 2 — Docker Build Check (no push)
+#  Stage 2 — Docker Build (push on gitlab-deploy / tags)
 # ═══════════════════════════════════════════════════════
 
-backend-docker-check:
-  stage: docker-check
-  image: docker:24
+.docker-base:
+  stage: docker
+  image: docker:24-cli
   services:
     - docker:24-dind
-  variables:
-    DOCKER_TLS_CERTDIR: ""
-  script:
-    - docker build -f server/Dockerfile server/
+  interruptible: true
+  before_script:
+    - docker info
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "gitlab-deploy" ] || [ -n "$CI_COMMIT_TAG" ]; then
+        echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+      fi
 
-frontend-docker-check:
-  stage: docker-check
-  image: docker:24
-  services:
-    - docker:24-dind
-  variables:
-    DOCKER_TLS_CERTDIR: ""
+backend-docker:
+  extends: .docker-base
+  needs: ["backend-test"]
   script:
-    - docker build -f web/Dockerfile web/
+    - export IMAGE="$CI_REGISTRY_IMAGE/backend"
+    - docker build -t "$IMAGE:$CI_COMMIT_SHORT_SHA" -t "$IMAGE:$CI_COMMIT_REF_SLUG" -f server/Dockerfile server/
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "gitlab-deploy" ] || [ -n "$CI_COMMIT_TAG" ]; then
+        docker tag "$IMAGE:$CI_COMMIT_SHORT_SHA" "$IMAGE:latest"
+        docker push "$IMAGE:$CI_COMMIT_SHORT_SHA"
+        docker push "$IMAGE:$CI_COMMIT_REF_SLUG"
+        docker push "$IMAGE:latest"
+        echo "Pushed $IMAGE:$CI_COMMIT_REF_SLUG"
+      else
+        echo "Build-only mode (no push on branch $CI_COMMIT_BRANCH)"
+      fi
+  after_script:
+    - docker logout "$CI_REGISTRY" 2>/dev/null || true
+
+frontend-docker:
+  extends: .docker-base
+  needs: ["frontend-test"]
+  script:
+    - export IMAGE="$CI_REGISTRY_IMAGE/frontend"
+    - docker build -t "$IMAGE:$CI_COMMIT_SHORT_SHA" -t "$IMAGE:$CI_COMMIT_REF_SLUG" -f web/Dockerfile web/
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "gitlab-deploy" ] || [ -n "$CI_COMMIT_TAG" ]; then
+        docker tag "$IMAGE:$CI_COMMIT_SHORT_SHA" "$IMAGE:latest"
+        docker push "$IMAGE:$CI_COMMIT_SHORT_SHA"
+        docker push "$IMAGE:$CI_COMMIT_REF_SLUG"
+        docker push "$IMAGE:latest"
+        echo "Pushed $IMAGE:$CI_COMMIT_REF_SLUG"
+      else
+        echo "Build-only mode (no push on branch $CI_COMMIT_BRANCH)"
+      fi
+  after_script:
+    - docker logout "$CI_REGISTRY" 2>/dev/null || true
