@@ -1,5 +1,7 @@
 # AI Resume and Job Search Assistant
 
+[![CI](https://github.com/Aca-ac/resume/actions/workflows/ci.yml/badge.svg)](https://github.com/Aca-ac/resume/actions/workflows/ci.yml)
+
 前后端分离的 AI 简历与求职助手：简历管理、JD 匹配、模拟面试。
 
 ## Stack
@@ -40,3 +42,13 @@ For Chinese PDF export, place `NotoSansSC-Regular.otf` under `server/src/main/re
 ```bash
 cd server && mvn test
 ```
+
+## CI (GitHub Actions)
+
+Push or PR to `master` triggers `.github/workflows/ci.yml`:
+
+| Job | What it does |
+|-----|--------------|
+| **Backend** | JDK 17 + Maven verify with MySQL 8 & Redis 7 services |
+| **Frontend** | `npm ci` → typecheck (`vue-tsc`) → `vite build` |
+| **Docker check** | Build both images (backend + frontend) to validate Dockerfiles |
