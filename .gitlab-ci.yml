@@ -1,9 +1,7 @@
 # ─────────────────────────────────────────────────────
 # GitLab CI/CD — Resume Assistant (智通车)
 # ─────────────────────────────────────────────────────
-# Stages : test → docker
-# Branches: all branches run tests + docker build
-# Push    : gitlab-deploy branch / tags → GitLab Container Registry
+# Runner tag: win-docker (WSL-Docker-Runner #53)
 # ─────────────────────────────────────────────────────
 
 workflow:
@@ -33,6 +31,7 @@ cache:
 
 backend-test:
   stage: test
+  tags: [win-docker]
   image: maven:3.9-eclipse-temurin-17
   interruptible: true
   script:
@@ -48,6 +47,7 @@ backend-test:
 
 frontend-test:
   stage: test
+  tags: [win-docker]
   image: node:20-alpine
   interruptible: true
   before_script:
@@ -67,6 +67,7 @@ frontend-test:
 
 .docker-base:
   stage: docker
+  tags: [win-docker]
   image: docker:24-cli
   services:
     - docker:24-dind
