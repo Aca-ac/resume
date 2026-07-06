@@ -70,7 +70,9 @@ frontend-test:
 
 backend-docker:
   extends: .docker-base
-  needs: ["backend-test"]
+  needs:
+    - job: backend-test
+      artifacts: false
   script:
     - export IMAGE="$CI_REGISTRY_IMAGE/backend"
     - docker build -t "$IMAGE:$CI_COMMIT_SHORT_SHA" -t "$IMAGE:$CI_COMMIT_REF_SLUG" -f server/Dockerfile server/
@@ -89,7 +91,9 @@ backend-docker:
 
 frontend-docker:
   extends: .docker-base
-  needs: ["frontend-test"]
+  needs:
+    - job: frontend-test
+      artifacts: false
   script:
     - export IMAGE="$CI_REGISTRY_IMAGE/frontend"
     - docker build -t "$IMAGE:$CI_COMMIT_SHORT_SHA" -t "$IMAGE:$CI_COMMIT_REF_SLUG" -f web/Dockerfile web/
