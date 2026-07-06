@@ -1,5 +1,5 @@
 # GitLab CI/CD - Resume Assistant
-# No job tags: uses shared runners or any runner with "Run untagged jobs" enabled.
+# Runner tag: win-docker (WSL-Docker-Runner)
 
 workflow:
   rules:
@@ -24,6 +24,7 @@ cache:
 
 backend-test:
   stage: test
+  tags: [win-docker]
   image: maven:3.9-eclipse-temurin-17
   interruptible: true
   script:
@@ -39,6 +40,7 @@ backend-test:
 
 frontend-test:
   stage: test
+  tags: [win-docker]
   image: node:20-alpine
   interruptible: true
   before_script:
@@ -54,6 +56,7 @@ frontend-test:
 
 .docker-base:
   stage: docker
+  tags: [win-docker]
   image: docker:24-cli
   services:
     - docker:24-dind
