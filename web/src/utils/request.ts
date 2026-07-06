@@ -1,8 +1,9 @@
-import axios, { type AxiosRequestConfig } from "axios";
+import axios, { type AxiosRequestConfig, type AxiosInstance } from "axios";
 import { useAuthStore } from "@/stores/auth";
 import router from "@/router";
 
-const request = axios.create({
+// ── Underlying axios instance ──────────────────────
+const instance: AxiosInstance = axios.create({
   baseURL: "/api/v1",
   timeout: 30000
 });
@@ -22,7 +23,7 @@ function refreshAccessToken(): Promise<void> {
   return refreshPromise;
 }
 
-request.interceptors.request.use((config) => {
+instance.interceptors.request.use((config) => {
   const auth = useAuthStore();
   if (auth.accessToken) {
     config.headers.Authorization = `Bearer ${auth.accessToken}`;
@@ -30,7 +31,10 @@ request.interceptors.request.use((config) => {
   return config;
 });
 
-request.interceptors.response.use(
+// The interceptor unwraps { code, data } envelopes:
+//   { code:0, data: T } → T
+//   otherwise           → body as-is
+instance.interceptors.response.use(
   (response) => {
     const body = response.data;
     if (body && typeof body.code === "number" && body.code !== 0) {
@@ -47,7 +51,7 @@ request.interceptors.response.use(
         await refreshAccessToken();
         config.headers = config.headers ?? {};
         config.headers.Authorization = `Bearer ${auth.accessToken}`;
-        return request(config);
+        return instance(config);
       } catch {
         auth.logout();
         router.push("/login");
@@ -56,5 +60,23 @@ request.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// ── Typed wrapper: reflects that the interceptor ──
+//     already unwraps the envelope so callers get T
+//     directly, not AxiosResponse<T>.
+// ────────────────────────────────────────────────────
+interface UnwrappedRequest {
+  get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T>;
+  post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T>;
+  put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T>;
+  delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T>;
+}
+
+const request: UnwrappedRequest = {
+  get: (url, config) => instance.get(url, config) as any,
+  post: (url, data, config) => instance.post(url, data, config) as any,
+  put: (url, data, config) => instance.put(url, data, config) as any,
+  delete: (url, config) => instance.delete(url, config) as any,
+};
 
 export default request;
