@@ -1,8 +1,8 @@
-# ─────────────────────────────────────────────────────
-# GitLab CI/CD — Resume Assistant (智通车)
-# ─────────────────────────────────────────────────────
-# Runner tag: win-docker (WSL-Docker-Runner #53)
-# ─────────────────────────────────────────────────────
+# 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+# GitLab CI/CD 鈥?Resume Assistant (鏅洪€氳溅)
+# 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+# No job tags — use shared runners or any runner with Run untagged jobs enabled.
+# 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 workflow:
   rules:
@@ -25,13 +25,10 @@ cache:
     - server/.m2/repository/
     - web/node_modules/
 
-# ═══════════════════════════════════════════════════════
-#  Stage 1 — Test
-# ═══════════════════════════════════════════════════════
-
+# 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?#  Stage 1 鈥?Test
+# 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
 backend-test:
   stage: test
-  tags: [win-docker]
   image: maven:3.9-eclipse-temurin-17
   interruptible: true
   script:
@@ -47,7 +44,6 @@ backend-test:
 
 frontend-test:
   stage: test
-  tags: [win-docker]
   image: node:20-alpine
   interruptible: true
   before_script:
@@ -61,13 +57,10 @@ frontend-test:
       - web/dist/
     expire_in: 1 day
 
-# ═══════════════════════════════════════════════════════
-#  Stage 2 — Docker Build (push on gitlab-deploy / tags)
-# ═══════════════════════════════════════════════════════
-
+# 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?#  Stage 2 鈥?Docker Build (push on gitlab-deploy / tags)
+# 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
 .docker-base:
   stage: docker
-  tags: [win-docker]
   image: docker:24-cli
   services:
     - docker:24-dind
