@@ -23,13 +23,17 @@ backend-test:
   image: maven:3.9-eclipse-temurin-17
   variables:
     MAVEN_OPTS: "-Dmaven.repo.local=${CI_PROJECT_DIR}/server/.m2/repository"
-  services:
-    - mysql:8.0
-    - redis:7-alpine
-  variables:
     MYSQL_ROOT_PASSWORD: root
     MYSQL_DATABASE: resume_assistant
     REDIS_HOST: redis
+  services:
+    - name: mysql:8.0
+      alias: mysql
+      variables:
+        MYSQL_ROOT_PASSWORD: root
+        MYSQL_DATABASE: resume_assistant
+    - name: redis:7-alpine
+      alias: redis
   script:
     - cd server
     - >
