@@ -20,6 +20,7 @@ cache:
 # ── Backend (Java 17 + Maven) ────────────────────────
 backend-test:
   stage: test
+  tags: [win-docker]
   image: maven:3.9-eclipse-temurin-17
   services:
     - name: mysql:8.0
@@ -56,6 +57,7 @@ backend-test:
 # ── Frontend (Node 20 + Vite) ────────────────────────
 frontend-test:
   stage: test
+  tags: [win-docker]
   image: node:20-alpine
   before_script:
     - cd web && npm ci --prefer-offline
@@ -88,6 +90,7 @@ frontend-test:
 # ── Backend image ────────────────────────────────────
 backend-docker:
   extends: .docker-build
+  tags: [win-docker]
   script:
     - |
       IMAGE="$CI_REGISTRY_IMAGE/backend"
@@ -105,6 +108,7 @@ backend-docker:
 # ── Frontend image ───────────────────────────────────
 frontend-docker:
   extends: .docker-build
+  tags: [win-docker]
   script:
     - |
       IMAGE="$CI_REGISTRY_IMAGE/frontend"
