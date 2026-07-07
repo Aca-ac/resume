@@ -61,10 +61,6 @@ frontend-test:
   interruptible: true
   before_script:
     - docker info
-    - |
-      if [ "$CI_COMMIT_BRANCH" = "gitlab-deploy" ] || [ -n "$CI_COMMIT_TAG" ]; then
-        echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
-      fi
 
 backend-docker:
   extends: .docker-base
@@ -72,17 +68,18 @@ backend-docker:
     - job: backend-test
       artifacts: false
   script:
-    - export IMAGE="$CI_REGISTRY_IMAGE/backend"
+    - export IMAGE="${CI_REGISTRY_IMAGE:-local}/backend"
     - docker build -t "$IMAGE:$CI_COMMIT_SHORT_SHA" -t "$IMAGE:$CI_COMMIT_REF_SLUG" -f server/Dockerfile server/
     - |
-      if [ "$CI_COMMIT_BRANCH" = "gitlab-deploy" ] || [ -n "$CI_COMMIT_TAG" ]; then
+      if [ -n "$CI_REGISTRY" ] && [ -n "$CI_REGISTRY_IMAGE" ] && { [ "$CI_COMMIT_BRANCH" = "gitlab-deploy" ] || [ -n "$CI_COMMIT_TAG" ]; }; then
+        echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
         docker tag "$IMAGE:$CI_COMMIT_SHORT_SHA" "$IMAGE:latest"
         docker push "$IMAGE:$CI_COMMIT_SHORT_SHA"
         docker push "$IMAGE:$CI_COMMIT_REF_SLUG"
         docker push "$IMAGE:latest"
         echo "Pushed $IMAGE:$CI_COMMIT_REF_SLUG"
       else
-        echo "Build-only mode (no push on branch $CI_COMMIT_BRANCH)"
+        echo "Build OK; skip registry push (registry not configured for this project)"
       fi
   after_script:
     - docker logout "$CI_REGISTRY" 2>/dev/null || true
@@ -93,17 +90,18 @@ frontend-docker:
     - job: frontend-test
       artifacts: false
   script:
-    - export IMAGE="$CI_REGISTRY_IMAGE/frontend"
+    - export IMAGE="${CI_REGISTRY_IMAGE:-local}/frontend"
     - docker build -t "$IMAGE:$CI_COMMIT_SHORT_SHA" -t "$IMAGE:$CI_COMMIT_REF_SLUG" -f web/Dockerfile web/
     - |
-      if [ "$CI_COMMIT_BRANCH" = "gitlab-deploy" ] || [ -n "$CI_COMMIT_TAG" ]; then
+      if [ -n "$CI_REGISTRY" ] && [ -n "$CI_REGISTRY_IMAGE" ] && { [ "$CI_COMMIT_BRANCH" = "gitlab-deploy" ] || [ -n "$CI_COMMIT_TAG" ]; }; then
+        echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
         docker tag "$IMAGE:$CI_COMMIT_SHORT_SHA" "$IMAGE:latest"
         docker push "$IMAGE:$CI_COMMIT_SHORT_SHA"
         docker push "$IMAGE:$CI_COMMIT_REF_SLUG"
         docker push "$IMAGE:latest"
         echo "Pushed $IMAGE:$CI_COMMIT_REF_SLUG"
       else
-        echo "Build-only mode (no push on branch $CI_COMMIT_BRANCH)"
+        echo "Build OK; skip registry push (registry not configured for this project)"
       fi
   after_script:
     - docker logout "$CI_REGISTRY" 2>/dev/null || true
