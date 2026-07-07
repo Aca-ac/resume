@@ -13,14 +13,14 @@ stages:
 
 variables:
   MAVEN_OPTS: "-Dmaven.repo.local=${CI_PROJECT_DIR}/server/.m2/repository"
-  DOCKER_TLS_CERTDIR: ""
-  DOCKER_DRIVER: overlay2
+  DOCKER_HOST: unix:///var/run/docker.sock
 
 cache:
   key: ${CI_COMMIT_REF_SLUG}
   paths:
     - server/.m2/repository/
     - web/node_modules/
+  policy: pull-push
 
 backend-test:
   stage: test
@@ -44,7 +44,7 @@ frontend-test:
   image: node:20-alpine
   interruptible: true
   before_script:
-    - cd web && npm ci --prefer-offline
+    - cd web && npm ci
   script:
     - cd web
     - npm run typecheck
@@ -58,8 +58,6 @@ frontend-test:
   stage: docker
   tags: ["#win-docker"]
   image: docker:24-cli
-  services:
-    - docker:24-dind
   interruptible: true
   before_script:
     - docker info
