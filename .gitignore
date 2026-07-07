@@ -5,3 +5,4 @@ target/
 .vscode/
 *.log
 .env
+server/.m2/
