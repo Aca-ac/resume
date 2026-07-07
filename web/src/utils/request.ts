@@ -45,7 +45,18 @@ instance.interceptors.response.use(
   async (error) => {
     const auth = useAuthStore();
     const config = error.config as AxiosRequestConfig & { _retry?: boolean };
-    if (error.response?.status === 401 && auth.refreshToken && config && !config._retry) {
+    const url = config?.url ?? "";
+    const isAuthEndpoint =
+      url.includes("/auth/login") ||
+      url.includes("/auth/register") ||
+      url.includes("/auth/refresh");
+    if (
+      error.response?.status === 401 &&
+      auth.refreshToken &&
+      config &&
+      !config._retry &&
+      !isAuthEndpoint
+    ) {
       config._retry = true;
       try {
         await refreshAccessToken();
@@ -57,7 +68,9 @@ instance.interceptors.response.use(
         router.push("/login");
       }
     }
-    return Promise.reject(error);
+    const message =
+      error.response?.data?.message ?? error.message ?? "request failed";
+    return Promise.reject(new Error(message));
   }
 );
 
