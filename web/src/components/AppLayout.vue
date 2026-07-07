@@ -2,7 +2,7 @@
   <el-container class="layout">
     <el-aside width="240px" class="aside">
       <div class="brand">
-        <span class="brand-icon">✦</span>
+        <span class="brand-icon">*</span>
         <span>Resume Assistant</span>
       </div>
       <el-menu
@@ -30,7 +30,7 @@
       </el-header>
       <el-main class="main">
         <router-view v-slot="{ Component, route }">
-          <transition name="fade-slide" mode="out-in">
+          <transition name="fade-slide">
             <component :is="Component" :key="route.path" class="page-content" />
           </transition>
         </router-view>
@@ -90,7 +90,6 @@ function onLogout() {
   background: var(--app-sidebar);
   color: #fff;
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.08);
-  animation: slideInLeft 0.4s ease both;
 }
 
 .brand {
@@ -113,7 +112,6 @@ function onLogout() {
   border-radius: 8px;
   background: var(--app-gradient);
   font-size: 14px;
-  animation: pulse-soft 3s ease-in-out infinite;
 }
 
 .nav-menu {
@@ -152,7 +150,6 @@ function onLogout() {
   background: #fff;
   border-bottom: 1px solid #ebeef5;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-  animation: fadeIn 0.4s ease both;
 }
 
 .header-title {
@@ -177,7 +174,4 @@ function onLogout() {
   padding: 24px;
 }
 
-.page-content {
-  animation: fadeUp 0.4s ease both;
-}
 </style>

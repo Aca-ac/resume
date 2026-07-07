@@ -1,7 +1,14 @@
 <template>
   <router-view v-slot="{ Component, route }">
-    <transition :name="route.meta.public ? 'page' : 'page'" mode="out-in">
-      <component :is="Component" :key="route.path" />
-    </transition>
+    <Suspense>
+      <template #default>
+        <transition name="page">
+          <component :is="Component" :key="route.path" />
+        </transition>
+      </template>
+      <template #fallback>
+        <div class="route-loading">Loading...</div>
+      </template>
+    </Suspense>
   </router-view>
 </template>

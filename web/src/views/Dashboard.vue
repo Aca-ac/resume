@@ -1,12 +1,11 @@
-<template>
+﻿<template>
   <div class="dashboard">
-    <h2 class="page-title animate-fade-up">Welcome back</h2>
-    <p class="subtitle animate-fade-up stagger-1">Your AI-powered career toolkit</p>
+    <h2 class="page-title">Welcome back</h2>
+    <p class="subtitle">Your AI-powered career toolkit</p>
     <el-row :gutter="20" class="cards">
-      <el-col v-for="(card, i) in cards" :key="card.path" :span="8">
+      <el-col v-for="card in cards" :key="card.path" :span="8">
         <el-card
-          class="feature-card hover-lift animate-fade-up"
-          :class="`stagger-${i + 2}`"
+          class="feature-card hover-lift"
           shadow="hover"
           @click="$router.push(card.path)"
         >
@@ -15,7 +14,7 @@
           </div>
           <h3>{{ card.title }}</h3>
           <p>{{ card.desc }}</p>
-          <el-button type="primary" plain class="card-btn">Open →</el-button>
+          <el-button type="primary" plain class="card-btn">Open</el-button>
         </el-card>
       </el-col>
     </el-row>
@@ -58,7 +57,6 @@ const cards = [
 .subtitle {
   margin: -12px 0 28px;
   color: #909399;
-  animation-delay: 80ms;
 }
 
 .feature-card {

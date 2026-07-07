@@ -6,7 +6,7 @@
         <el-form-item label="Username"><el-input v-model="form.username" /></el-form-item>
         <el-form-item label="Password"><el-input v-model="form.password" type="password" /></el-form-item>
         <el-button type="primary" native-type="submit" :loading="loading">Login</el-button>
-        <el-button link @click="$router.push('/register')">Register</el-button>
+        <el-button link @mouseenter="prefetchRegister" @focus="prefetchRegister" @click="goRegister">Register</el-button>
       </el-form>
     </el-card>
   </div>
@@ -25,10 +25,24 @@ const router = useRouter();
 const loading = ref(false);
 const form = reactive({ username: "", password: "" });
 
+function prefetchRegister() {
+  void import("@/views/Register.vue");
+}
+
+function prefetchDashboard() {
+  void import("@/components/AppLayout.vue");
+  void import("@/views/Dashboard.vue");
+}
+
+function goRegister() {
+  router.push("/register");
+}
+
 async function onSubmit() {
   loading.value = true;
   try {
     await auth.login(form.username, form.password);
+    prefetchDashboard();
     router.push("/dashboard");
   } catch (e: any) {
     ElMessage.error(e.message || "Login failed");
