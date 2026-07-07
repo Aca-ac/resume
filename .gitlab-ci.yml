@@ -1,5 +1,6 @@
 # GitLab CI/CD - Resume Assistant
-# Runner tag: #win-docker (matches online runner #58)
+# Runner tag: #win-docker (WSL-Docker-Runner #58, docker executor + host socket)
+# No GitLab cache block: runner has no S3/GCS cache adapter configured.
 
 workflow:
   rules:
@@ -14,19 +15,30 @@ stages:
 variables:
   MAVEN_OPTS: "-Dmaven.repo.local=${CI_PROJECT_DIR}/server/.m2/repository"
   DOCKER_HOST: unix:///var/run/docker.sock
+  NPM_CONFIG_REGISTRY: "https://registry.npmmirror.com"
 
-cache:
-  key: ${CI_COMMIT_REF_SLUG}
-  paths:
-    - server/.m2/repository/
-    - web/node_modules/
-  policy: pull-push
-
-backend-test:
+.test-base:
   stage: test
   tags: ["#win-docker"]
-  image: maven:3.9-eclipse-temurin-17
   interruptible: true
+
+backend-test:
+  extends: .test-base
+  image: maven:3.9-eclipse-temurin-17
+  before_script:
+    - mkdir -p server/.m2
+    - |
+      cat > server/.m2/settings.xml <<'EOF'
+      <settings>
+        <mirrors>
+          <mirror>
+            <id>aliyun</id>
+            <mirrorOf>central</mirrorOf>
+            <url>https://maven.aliyun.com/repository/public</url>
+          </mirror>
+        </mirrors>
+      </settings>
+      EOF
   script:
     - cd server
     - mvn test --no-transfer-progress -B
@@ -39,14 +51,12 @@ backend-test:
     expire_in: 7 days
 
 frontend-test:
-  stage: test
-  tags: ["#win-docker"]
+  extends: .test-base
   image: node:20-alpine
-  interruptible: true
   before_script:
-    - cd web && npm ci
-  script:
     - cd web
+    - npm ci --no-audit
+  script:
     - npm run typecheck
     - npm run build
   artifacts:
