@@ -1,8 +1,6 @@
 node_modules/
 dist/
-target/
+.git/
+*.md
 .idea/
 .vscode/
-*.log
-.env
-server/.m2/

@@ -1,0 +1,62 @@
+# GitLab CI/CD - Resume Assistant
+# Runner: WSL-Docker-Runner #58, tag #win-docker, docker executor
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+stages:
+  - test
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=/cache/maven/repository -Dmaven.artifact.threads=8"
+  NPM_CONFIG_REGISTRY: "https://registry.npmmirror.com"
+  GIT_DEPTH: "1"
+
+.test-base:
+  stage: test
+  tags: ["#win-docker"]
+  interruptible: true
+  timeout: 4m
+  retry:
+    max: 1
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+
+backend-test:
+  extends: .test-base
+  image:
+    name: docker.m.daocloud.io/library/maven:3.9-eclipse-temurin-17
+    pull_policy: if-not-present
+  before_script:
+    - mkdir -p /cache/maven/repository
+  script:
+    - cd server
+    - mvn -s .mvn/settings.xml test --no-transfer-progress -B -nsu
+  artifacts:
+    when: always
+    reports:
+      junit: server/target/surefire-reports/TEST-*.xml
+    paths:
+      - server/target/surefire-reports/
+    expire_in: 7 days
+
+frontend-test:
+  extends: .test-base
+  image:
+    name: docker.m.daocloud.io/library/node:20-alpine
+    pull_policy: if-not-present
+  before_script:
+    - cd web
+    - npm config set registry https://registry.npmmirror.com
+    - npm ci --no-audit --prefer-offline --fetch-retries=3 --fetch-retry-mintimeout=10000 --fetch-retry-maxtimeout=60000
+  script:
+    - npm run typecheck
+    - npm run build
+  artifacts:
+    paths:
+      - web/dist/
+    expire_in: 1 day

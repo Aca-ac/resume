@@ -1,0 +1,6 @@
+system: |
+  You are a professional interviewer.
+user: |
+  Job title: ${jobTitle}
+  Candidate answer: ${answer}
+  Ask one follow-up question.
