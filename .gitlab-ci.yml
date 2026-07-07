@@ -1,6 +1,5 @@
 # GitLab CI/CD - Resume Assistant
-# Runner tag: #win-docker (WSL-Docker-Runner #58, docker executor + host socket)
-# No GitLab cache block: runner has no S3/GCS cache adapter configured.
+# Runner: WSL-Docker-Runner #58, tag #win-docker, docker executor + host socket
 
 workflow:
   rules:
@@ -16,22 +15,29 @@ variables:
   MAVEN_OPTS: "-Dmaven.repo.local=${CI_PROJECT_DIR}/server/.m2/repository"
   DOCKER_HOST: unix:///var/run/docker.sock
   NPM_CONFIG_REGISTRY: "https://registry.npmmirror.com"
-
+  GIT_DEPTH: "1"
 
 .test-base:
   stage: test
   tags: ["#win-docker"]
   interruptible: true
+  retry:
+    max: 1
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+      - script_failure
 
 backend-test:
   extends: .test-base
-  image: maven:3.9-eclipse-temurin-17
+  image:
+    name: docker.m.daocloud.io/library/maven:3.9-eclipse-temurin-17
+    pull_policy: if-not-present
   before_script:
     - mkdir -p server/.m2
-    - echo '<settings><mirrors><mirror><id>aliyun</id><mirrorOf>central</mirrorOf><url>https://maven.aliyun.com/repository/public</url></mirror></mirrors></settings>' > server/.m2/settings.xml
   script:
     - cd server
-    - mvn test --no-transfer-progress -B
+    - mvn -s .mvn/settings.xml test --no-transfer-progress -B
   artifacts:
     when: always
     reports:
@@ -42,10 +48,13 @@ backend-test:
 
 frontend-test:
   extends: .test-base
-  image: node:20-alpine
+  image:
+    name: docker.m.daocloud.io/library/node:20-alpine
+    pull_policy: if-not-present
   before_script:
     - cd web
-    - npm ci --no-audit
+    - npm config set registry https://registry.npmmirror.com
+    - npm ci --no-audit --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
   script:
     - npm run typecheck
     - npm run build
@@ -57,7 +66,9 @@ frontend-test:
 .docker-base:
   stage: docker
   tags: ["#win-docker"]
-  image: docker:24-cli
+  image:
+    name: docker.m.daocloud.io/library/docker:24-cli
+    pull_policy: if-not-present
   interruptible: true
   before_script:
     - docker info
@@ -71,7 +82,7 @@ backend-docker:
     - export IMAGE="${CI_REGISTRY_IMAGE:-local}/backend"
     - docker build -t "$IMAGE:$CI_COMMIT_SHORT_SHA" -t "$IMAGE:$CI_COMMIT_REF_SLUG" -f server/Dockerfile server/
     - |
-      if [ -n "$CI_REGISTRY" ] && [ -n "$CI_REGISTRY_IMAGE" ] && { [ "$CI_COMMIT_BRANCH" = "gitlab-deploy" ] || [ -n "$CI_COMMIT_TAG" ]; }; then
+      if [ -n "$CI_REGISTRY" ] && [ -n "$CI_REGISTRY_IMAGE" ] && [ -n "$CI_REGISTRY_USER" ] && [ -n "$CI_REGISTRY_PASSWORD" ] && { [ "$CI_COMMIT_BRANCH" = "gitlab-deploy" ] || [ -n "$CI_COMMIT_TAG" ]; }; then
         echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
         docker tag "$IMAGE:$CI_COMMIT_SHORT_SHA" "$IMAGE:latest"
         docker push "$IMAGE:$CI_COMMIT_SHORT_SHA"
@@ -79,7 +90,7 @@ backend-docker:
         docker push "$IMAGE:latest"
         echo "Pushed $IMAGE:$CI_COMMIT_REF_SLUG"
       else
-        echo "Build OK; skip registry push (registry not configured for this project)"
+        echo "Build OK; skip registry push (registry credentials not configured)"
       fi
   after_script:
     - docker logout "$CI_REGISTRY" 2>/dev/null || true
@@ -93,7 +104,7 @@ frontend-docker:
     - export IMAGE="${CI_REGISTRY_IMAGE:-local}/frontend"
     - docker build -t "$IMAGE:$CI_COMMIT_SHORT_SHA" -t "$IMAGE:$CI_COMMIT_REF_SLUG" -f web/Dockerfile web/
     - |
-      if [ -n "$CI_REGISTRY" ] && [ -n "$CI_REGISTRY_IMAGE" ] && { [ "$CI_COMMIT_BRANCH" = "gitlab-deploy" ] || [ -n "$CI_COMMIT_TAG" ]; }; then
+      if [ -n "$CI_REGISTRY" ] && [ -n "$CI_REGISTRY_IMAGE" ] && [ -n "$CI_REGISTRY_USER" ] && [ -n "$CI_REGISTRY_PASSWORD" ] && { [ "$CI_COMMIT_BRANCH" = "gitlab-deploy" ] || [ -n "$CI_COMMIT_TAG" ]; }; then
         echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
         docker tag "$IMAGE:$CI_COMMIT_SHORT_SHA" "$IMAGE:latest"
         docker push "$IMAGE:$CI_COMMIT_SHORT_SHA"
@@ -101,7 +112,7 @@ frontend-docker:
         docker push "$IMAGE:latest"
         echo "Pushed $IMAGE:$CI_COMMIT_REF_SLUG"
       else
-        echo "Build OK; skip registry push (registry not configured for this project)"
+        echo "Build OK; skip registry push (registry credentials not configured)"
       fi
   after_script:
     - docker logout "$CI_REGISTRY" 2>/dev/null || true
