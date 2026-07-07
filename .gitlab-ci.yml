@@ -17,6 +17,10 @@ variables:
   DOCKER_HOST: unix:///var/run/docker.sock
   NPM_CONFIG_REGISTRY: "https://registry.npmmirror.com"
 
+default:
+  image:
+    pull_policy: if-not-present
+
 .test-base:
   stage: test
   tags: ["#win-docker"]
@@ -27,18 +31,7 @@ backend-test:
   image: maven:3.9-eclipse-temurin-17
   before_script:
     - mkdir -p server/.m2
-    - |
-      cat > server/.m2/settings.xml <<'EOF'
-      <settings>
-        <mirrors>
-          <mirror>
-            <id>aliyun</id>
-            <mirrorOf>central</mirrorOf>
-            <url>https://maven.aliyun.com/repository/public</url>
-          </mirror>
-        </mirrors>
-      </settings>
-      EOF
+    - echo '<settings><mirrors><mirror><id>aliyun</id><mirrorOf>central</mirrorOf><url>https://maven.aliyun.com/repository/public</url></mirror></mirrors></settings>' > server/.m2/settings.xml
   script:
     - cd server
     - mvn test --no-transfer-progress -B
