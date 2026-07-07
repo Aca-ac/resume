@@ -12,7 +12,7 @@ stages:
   - docker
 
 variables:
-  MAVEN_OPTS: "-Dmaven.repo.local=${CI_PROJECT_DIR}/server/.m2/repository"
+  MAVEN_OPTS: "-Dmaven.repo.local=/cache/maven/repository -Dmaven.artifact.threads=8"
   DOCKER_HOST: unix:///var/run/docker.sock
   NPM_CONFIG_REGISTRY: "https://registry.npmmirror.com"
   GIT_DEPTH: "1"
@@ -21,12 +21,12 @@ variables:
   stage: test
   tags: ["#win-docker"]
   interruptible: true
+  timeout: 4m
   retry:
     max: 1
     when:
       - runner_system_failure
       - stuck_or_timeout_failure
-      - script_failure
 
 backend-test:
   extends: .test-base
@@ -34,10 +34,10 @@ backend-test:
     name: docker.m.daocloud.io/library/maven:3.9-eclipse-temurin-17
     pull_policy: if-not-present
   before_script:
-    - mkdir -p server/.m2
+    - mkdir -p /cache/maven/repository
   script:
     - cd server
-    - mvn -s .mvn/settings.xml test --no-transfer-progress -B
+    - mvn -s .mvn/settings.xml test --no-transfer-progress -B -nsu
   artifacts:
     when: always
     reports:
@@ -54,7 +54,7 @@ frontend-test:
   before_script:
     - cd web
     - npm config set registry https://registry.npmmirror.com
-    - npm ci --no-audit --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+    - npm ci --no-audit --prefer-offline --fetch-retries=3 --fetch-retry-mintimeout=10000 --fetch-retry-maxtimeout=60000
   script:
     - npm run typecheck
     - npm run build
@@ -70,6 +70,7 @@ frontend-test:
     name: docker.m.daocloud.io/library/docker:24-cli
     pull_policy: if-not-present
   interruptible: true
+  timeout: 15m
   before_script:
     - docker info
 
