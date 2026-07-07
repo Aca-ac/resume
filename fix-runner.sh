@@ -1,0 +1,43 @@
+#!/bin/bash
+cat > /tmp/config.toml << 'EOF'
+concurrent = 1
+check_interval = 0
+connection_max_age = "15m0s"
+shutdown_timeout = 0
+
+[session_server]
+  session_timeout = 1800
+
+[[runners]]
+  name = "WSL-Docker-Runner"
+  url = "http://csgitlab.whu.edu.cn"
+  id = 58
+  token = "glrt-71A8Lw1Q53JzlQZNUgpSh286MQpwOmx2CnQ6Mwp1OjRiEQ.01.1a18s4egj"
+  token_obtained_at = 2026-07-06T11:11:00Z
+  token_expires_at = 0001-01-01T00:00:00Z
+  executor = "docker"
+  pre_clone_script = "git config --global credential.helper store && echo \"http://gitlab+deploy-token-17:gldt-NWSvsdfJsqqMLHYVKVYi@csgitlab.whu.edu.cn\" > ~/.git-credentials"
+  [runners.cache]
+    MaxUploadedArchiveSize = 0
+    [runners.cache.s3]
+      AssumeRoleMaxConcurrency = 0
+    [runners.cache.gcs]
+    [runners.cache.azure]
+  [runners.docker]
+    tls_verify = false
+    image = "ruby:3.1"
+    privileged = true
+    disable_entrypoint_overwrite = false
+    oom_kill_disable = false
+    disable_cache = false
+    volumes = ["/var/run/docker.sock:/var/run/docker.sock", "/cache"]
+    volume_keep = false
+    wait_for_services_timeout = 90
+    shm_size = 0
+    network_mtu = 0
+    network_mode = "gitlab-runner-net"
+EOF
+sudo cp /tmp/config.toml /etc/gitlab-runner/config.toml
+sudo usermod -aG docker gitlab-runner
+sudo gitlab-runner restart
+sudo gitlab-runner verify
