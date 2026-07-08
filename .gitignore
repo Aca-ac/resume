@@ -6,3 +6,4 @@ target/
 *.log
 .env
 server/.m2/
+server/out/
