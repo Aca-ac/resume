@@ -102,6 +102,32 @@ public class JwtTokenUtil {
         }
     }
 
+
+    public static Long getUserIdFromAuthorization(String authorization) {
+        if (authorization == null) {
+            return null;
+        }
+
+        String token = null;
+        if (authorization.startsWith("Bearer ")) {
+            token = authorization.substring(7);
+        } else if (authorization.startsWith("Bearer")) {
+            token = authorization.substring(6).trim();
+        } else {
+            token = authorization;
+        }
+
+        if (token == null || token.isEmpty()) {
+            return null;
+        }
+
+        try {
+            return getUserIdFromToken(token);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public static long getExpirationMinutes() {
         return accessExpirationMinutes;
     }
