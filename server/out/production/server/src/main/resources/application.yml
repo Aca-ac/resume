@@ -1,4 +1,4 @@
-﻿spring:
+spring:
   application:
     name: resume-assistant
   profiles:
@@ -45,7 +45,7 @@ app:
       model: gpt-4o-mini
     qwen:
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
-      api-key: ${DASHSCOPE_API_KEY:${QWEN_API_KEY:}}
+      api-key: ${QWEN_API_KEY:}
       model: qwen-plus
 
 management:
@@ -56,20 +56,3 @@ management:
   endpoint:
     health:
       show-details: when_authorized
-
-
-
-email:
-  smtp:
-    host: smtp.qq.com
-    port: 587
-    username: 1317978599@qq.com
-    password: lysbbtvvlnwmjdjd
-    protocol: smtp
-    timeout: 5000
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
