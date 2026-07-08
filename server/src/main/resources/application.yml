@@ -3,6 +3,11 @@
     name: resume-assistant
   profiles:
     active: dev
+  datasource:
+    url: jdbc:mysql://localhost:3306/resume_assistant?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: resume
+    password: resume123
+    driver-class-name: com.mysql.cj.jdbc.Driver
   flyway:
     enabled: true
     locations: classpath:db/migration
