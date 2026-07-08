@@ -17,3 +17,9 @@ app:
 logging:
   level:
     com.resume: debug
+
+# OCR配置
+app:
+  ai:
+    qwen:
+      api-key: ${DASHSCOPE_API_KEY:${QWEN_API_KEY:}}
