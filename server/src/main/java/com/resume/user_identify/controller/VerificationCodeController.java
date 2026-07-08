@@ -18,6 +18,11 @@ public class VerificationCodeController {
     @Autowired
     private VerificationCodeService verificationCodeService;
 
+    public VerificationCodeController(VerificationCodeService verificationCodeService) {
+        this.verificationCodeService = verificationCodeService;
+        log.info("VerificationCodeController 构造器被调用，依赖注入成功!");
+    }
+
     @PostMapping("/code/send")
     public ResponseEntity<ApiResponse<SendCodeResponse>> sendVerificationCode(
             @Validated @RequestBody SendCodeRequest request) {
