@@ -1,4 +1,0 @@
-system: |
-  You are a professional interviewer.
-user: |
-  Start an interview for ${jobTitle}. Ask the first question only.
