@@ -81,4 +81,23 @@ public class AuthController {
         RefreshResponse response = new RefreshResponse(newAccessToken, expiresIn);
         return ApiResponse.success("刷新成功", response);
     }
+
+    @PostMapping("/password/reset")
+    public ApiResponse<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        if (!userService.isEmailExists(request.getEmail())) {
+            return ApiResponse.error(400, "邮箱未注册");
+        }
+
+        boolean success = userService.resetPassword(
+                request.getEmail(),
+                request.getCode(),
+                request.getPassword()
+        );
+
+        if (!success) {
+            return ApiResponse.error(400, "验证码错误或已过期");
+        }
+
+        return ApiResponse.success("密码重置成功", null);
+    }
 }
