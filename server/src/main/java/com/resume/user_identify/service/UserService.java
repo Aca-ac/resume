@@ -116,6 +116,7 @@ public class UserService {
 
         return true;
     }
+
     public User getUserInfo(Long userId) {
         return userMapper.selectById(userId);
     }
@@ -124,4 +125,5 @@ public class UserService {
         user.setUpdatedAt(LocalDateTime.now());
         return userMapper.updateById(user) > 0;
     }
+
 }
