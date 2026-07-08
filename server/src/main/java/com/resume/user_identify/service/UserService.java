@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+
 @Service
 public class UserService {
 
@@ -49,5 +51,28 @@ public class UserService {
 
     public long getTokenExpireMinutes() {
         return jwtTokenUtil.getExpirationMinutes();
+    }
+
+    public User login(String email, String password) {
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(User::getEmail, email);
+        User user = userMapper.selectOne(wrapper);
+
+        if (user == null) {
+            return null;
+        }
+
+        if (user.getStatus() != null && user.getStatus() == 0) {
+            return null;
+        }
+
+        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            return null;
+        }
+
+        user.setLastLoginAt(LocalDateTime.now());
+        userMapper.updateById(user);
+
+        return user;
     }
 }
