@@ -97,4 +97,23 @@ public class UserService {
 
         return jwtTokenUtil.generateToken(userId, email);
     }
+
+    public boolean resetPassword(String email, String code, String newPassword) {
+        if (!verificationCodeService.verifyCode(email, code)) {
+            return false;
+        }
+
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(User::getEmail, email);
+        User user = userMapper.selectOne(wrapper);
+
+        if (user == null) {
+            return false;
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userMapper.updateById(user);
+
+        return true;
+    }
 }
