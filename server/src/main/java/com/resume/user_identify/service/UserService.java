@@ -4,12 +4,14 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.resume.user_identify.entity.User;
 import com.resume.user_identify.mapper.UserMapper;
 import com.resume.user_identify.util.JwtTokenUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
+@Slf4j
 @Service
 public class UserService {
 
@@ -74,5 +76,25 @@ public class UserService {
         userMapper.updateById(user);
 
         return user;
+    }
+
+    public String refreshToken(String oldToken) {
+        if (JwtTokenUtil.isTokenExpiredBeyondGracePeriod(oldToken)) {
+            log.warn("Token has expired beyond grace period: {}", oldToken);
+            return null;
+        }
+
+        Long userId = JwtTokenUtil.getUserIdFromToken(oldToken);
+        String email = JwtTokenUtil.getEmailFromToken(oldToken);
+
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(User::getId, userId);
+        User user = userMapper.selectOne(wrapper);
+
+        if (user == null || (user.getStatus() != null && user.getStatus() == 0)) {
+            return null;
+        }
+
+        return jwtTokenUtil.generateToken(userId, email);
     }
 }

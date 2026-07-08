@@ -5,10 +5,7 @@ import com.resume.user_identify.entity.User;
 import com.resume.user_identify.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -53,5 +50,35 @@ public class AuthController {
 
         LoginResponse response = new LoginResponse(accessToken, expiresIn, user.getId());
         return ApiResponse.success("登录成功", response);
+    }
+
+    @PostMapping("/refresh")
+    public ApiResponse<RefreshResponse> refresh(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        if (authorization == null) {
+            return ApiResponse.error(401, "缺少Authorization头");
+        }
+
+        String oldToken = null;
+        if (authorization.startsWith("Bearer ")) {
+            oldToken = authorization.substring(7);
+        } else if (authorization.startsWith("Bearer")) {
+            oldToken = authorization.substring(6).trim();
+        } else {
+            oldToken = authorization;
+        }
+
+        if (oldToken == null || oldToken.isEmpty()) {
+            return ApiResponse.error(401, "无效的Authorization头");
+        }
+
+        String newAccessToken = userService.refreshToken(oldToken);
+
+        if (newAccessToken == null) {
+            return ApiResponse.error(401, "Token已过期，请重新登录");
+        }
+
+        long expiresIn = userService.getTokenExpireMinutes() * 60;
+        RefreshResponse response = new RefreshResponse(newAccessToken, expiresIn);
+        return ApiResponse.success("刷新成功", response);
     }
 }
