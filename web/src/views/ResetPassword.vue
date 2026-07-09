@@ -1,20 +1,20 @@
-<!-- src/views/Register.vue -->
+<!-- src/views/ResetPassword.vue -->
 <template>
   <div class="auth-container">
     <div class="auth-card">
-      <h1 class="auth-title">注册账号</h1>
-      <p class="auth-subtitle">使用邮箱注册，开启简历优化之旅</p>
+      <h1 class="auth-title">重置密码</h1>
+      <p class="auth-subtitle">通过邮箱验证码重置您的密码</p>
 
       <el-form
-          ref="registerFormRef"
-          :model="registerForm"
+          ref="resetFormRef"
+          :model="resetForm"
           :rules="rules"
           label-width="0"
-          @submit.prevent="handleRegister"
+          @submit.prevent="handleReset"
       >
         <el-form-item prop="email">
           <el-input
-              v-model="registerForm.email"
+              v-model="resetForm.email"
               placeholder="请输入邮箱"
               size="large"
               prefix-icon="Message"
@@ -24,7 +24,7 @@
         <el-form-item prop="code">
           <div class="code-input-wrapper">
             <el-input
-                v-model="registerForm.code"
+                v-model="resetForm.code"
                 placeholder="请输入验证码"
                 size="large"
                 prefix-icon="Lock"
@@ -43,9 +43,9 @@
 
         <el-form-item prop="password">
           <el-input
-              v-model="registerForm.password"
+              v-model="resetForm.password"
               type="password"
-              placeholder="请输入密码（6-20位，含字母和数字）"
+              placeholder="请输入新密码（6-20位，含字母和数字）"
               size="large"
               prefix-icon="Lock"
               show-password
@@ -54,9 +54,9 @@
 
         <el-form-item prop="confirmPassword">
           <el-input
-              v-model="registerForm.confirmPassword"
+              v-model="resetForm.confirmPassword"
               type="password"
-              placeholder="请再次输入密码"
+              placeholder="请再次输入新密码"
               size="large"
               prefix-icon="Lock"
               show-password
@@ -68,15 +68,15 @@
             size="large"
             class="auth-btn"
             :loading="loading"
-            @click="handleRegister"
+            @click="handleReset"
         >
-          注册
+          重置密码
         </el-button>
       </el-form>
 
       <div class="auth-footer">
-        已有账号？
-        <router-link to="/login" class="auth-link">立即登录</router-link>
+        想起密码了？
+        <router-link to="/login" class="auth-link">返回登录</router-link>
       </div>
     </div>
   </div>
@@ -91,25 +91,23 @@ import { useAuthStore } from '@/stores/auth'
 const router = useRouter()
 const authStore = useAuthStore()
 
-const registerFormRef = ref<InstanceType<typeof ElForm>>()
+const resetFormRef = ref<InstanceType<typeof ElForm>>()
 const loading = ref(false)
 const codeCountdown = ref(0)
 let countdownTimer: number | null = null
 
-const registerForm = ref({
+const resetForm = ref({
   email: '',
   code: '',
   password: '',
   confirmPassword: ''
 })
 
-// 验证邮箱格式
 const isEmailValid = computed(() => {
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
-  return emailRegex.test(registerForm.value.email)
+  return emailRegex.test(resetForm.value.email)
 })
 
-// 表单验证规则
 const rules = {
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
@@ -132,7 +130,7 @@ const rules = {
     { required: true, message: '请再次输入密码', trigger: 'blur' },
     {
       validator: (_: any, value: string, callback: any) => {
-        if (value !== registerForm.value.password) {
+        if (value !== resetForm.value.password) {
           callback(new Error('两次密码输入不一致'))
         } else {
           callback()
@@ -143,16 +141,14 @@ const rules = {
   ]
 }
 
-// 发送验证码
 const handleSendCode = async () => {
   if (!isEmailValid.value) {
     ElMessage.warning('请输入正确的邮箱格式')
     return
   }
 
-  const result = await authStore.sendCode(registerForm.value.email)
+  const result = await authStore.sendCode(resetForm.value.email)
   if (result.success) {
-    // 开始倒计时
     codeCountdown.value = 60
     if (countdownTimer) {
       clearInterval(countdownTimer)
@@ -167,23 +163,22 @@ const handleSendCode = async () => {
   }
 }
 
-// 注册
-const handleRegister = async () => {
-  if (!registerFormRef.value) return
+const handleReset = async () => {
+  if (!resetFormRef.value) return
 
-  await registerFormRef.value.validate(async (valid) => {
+  await resetFormRef.value.validate(async (valid) => {
     if (!valid) return
 
     loading.value = true
     try {
-      const result = await authStore.register(
-          registerForm.value.email,
-          registerForm.value.password,
-          registerForm.value.code
+      const result = await authStore.resetPassword(
+          resetForm.value.email,
+          resetForm.value.password,
+          resetForm.value.code
       )
 
       if (result.success) {
-        router.push('/home')
+        router.push('/login')
       }
     } finally {
       loading.value = false
