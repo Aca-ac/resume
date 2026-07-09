@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
+import {authApi} from "@/api/auth.ts";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -78,7 +79,7 @@ const router = createRouter({
           path: "interview/:sessionId/report",
           component: () => import("@/views/InterviewReport.vue")
         },
-        // 个人中心（已实现）
+        // 个人中心
         {
           path: "profile",
           component: () => import("@/views/Profile.vue"),
@@ -94,31 +95,47 @@ const router = createRouter({
   ]
 });
 
-// 全局路由守卫
-router.beforeEach((to, from, next) => {
-  const auth = useAuthStore();
+// 全局前置守卫
+router.beforeEach(async (to, from, next) => {
+  const authStore = useAuthStore()
+  const requiresAuth = to.meta.requiresAuth // 路由元信息标记是否需要登录
 
-  // 如果是公开页面，直接放行
-  if (to.meta.public) {
-    next();
-    return;
+  if (requiresAuth && authStore.isLoggedIn) {
+    // 用户已登录，需要验证 token 是否有效
+    try {
+      // 调用后端验证接口或尝试刷新 token
+      const isValid = await validateToken()
+      if (!isValid) {
+        authStore.clearAuth()
+        next('/login')
+        return
+      }
+    } catch {
+      authStore.clearAuth()
+      next('/login')
+      return
+    }
   }
 
-  // 检查是否已登录
-  const isAuthenticated = auth.isLoggedIn;
+  next()
+})
 
-  // 如果未登录，跳转到登录页
-  if (!isAuthenticated) {
-    // 保存用户想要访问的页面，登录后跳转回来
-    next({
-      path: "/login",
-      query: { redirect: to.fullPath }
-    });
-    return;
+// 验证 token 有效性的函数
+async function validateToken(): Promise<boolean> {
+  const authStore = useAuthStore()
+  if (!authStore.accessToken) return false
+
+  try {
+    // 可以调用后端的验证接口，或者尝试刷新 token
+    const res = await authApi.refresh() // 尝试刷新 token
+    if (res.code === 200) {
+      authStore.setToken(res.data.accessToken)
+      return true
+    }
+    return false
+  } catch {
+    return false
   }
-
-  // 已登录，正常访问
-  next();
-});
+}
 
 export default router;
