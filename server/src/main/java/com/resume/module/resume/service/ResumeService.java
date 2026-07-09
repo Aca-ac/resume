@@ -1,240 +1,284 @@
 package com.resume.module.resume.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.resume.common.BusinessException;
 import com.resume.config.StorageProperties;
-import com.resume.module.resume.dto.*;
 import com.resume.module.resume.entity.Resume;
+import com.resume.module.resume.entity.ResumeDetail;
 import com.resume.module.resume.entity.ResumeFile;
+import com.resume.module.resume.mapper.ResumeDetailMapper;
 import com.resume.module.resume.mapper.ResumeFileMapper;
 import com.resume.module.resume.mapper.ResumeMapper;
-import com.resume.user_identify.util.JwtTokenUtil;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.Base64;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class ResumeService {
 
-    private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
     private final ResumeMapper resumeMapper;
+    private final ResumeDetailMapper resumeDetailMapper;
     private final ResumeFileMapper resumeFileMapper;
-    private final FileStorageService fileStorageService;
-    private final FileParseService fileParseService;
-    private final ResumeExportService exportService;
-    private final OcrService ocrService;
     private final StorageProperties storageProperties;
+    private final FileParseService fileParseService;
 
-    public ResumeService(ResumeMapper resumeMapper,
-                         ResumeFileMapper resumeFileMapper,
-                         FileStorageService fileStorageService,
-                         FileParseService fileParseService,
-                         ResumeExportService exportService,
-                         OcrService ocrService,
-                         StorageProperties storageProperties) {
-        this.resumeMapper = resumeMapper;
-        this.resumeFileMapper = resumeFileMapper;
-        this.fileStorageService = fileStorageService;
-        this.fileParseService = fileParseService;
-        this.exportService = exportService;
-        this.ocrService = ocrService;
-        this.storageProperties = storageProperties;
-    }
+    @Value("${app.ai.qwen.api-key:}")
+    private String qwenApiKey;
 
-    public PageResult<ResumeVO> list(Long userId, int page, int size) {
-        LambdaQueryWrapper<Resume> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Resume::getUserId, userId).orderByDesc(Resume::getUpdatedAt);
-        Page<Resume> result = resumeMapper.selectPage(new Page<>(page, size), wrapper);
-        List<ResumeVO> records = result.getRecords().stream().map(this::toVO).toList();
-        return new PageResult<>(records, result.getTotal(), page, size);
-    }
+    private static final String QWEN_VL_OCR_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
+    private static final String QWEN_OCR_MODEL = "qwen3.5-ocr";
+    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public ResumeVO get(Long userId, Long id) {
-        Resume resume = requireOwned(userId, id);
-        return toVO(resume);
-    }
+    // ========== 绠€鍘嗕富琛?CRUD ==========
 
-    public ResumeVO create(Long userId, ResumeSaveRequest req) {
+    public Resume createResume(Long userId, String title) {
         Resume resume = new Resume();
         resume.setUserId(userId);
-        resume.setTitle(defaultTitle(req.getTitle()));
-        resume.setContent(defaultContent(req.getContent()));
-        resume.setCreatedAt(LocalDateTime.now());
-        resume.setUpdatedAt(LocalDateTime.now());
+        resume.setTitle(title == null || title.isBlank() ? "\u672a\u547d\u540d\u7b80\u5386" : title);
+        resume.setVersion(1);
         resumeMapper.insert(resume);
-        return toVO(resume);
+        return resume;
     }
 
-    public ResumeVO update(Long userId, Long id, ResumeSaveRequest req) {
-        Resume resume = requireOwned(userId, id);
-        if (req.getTitle() != null) {
-            resume.setTitle(req.getTitle());
-        }
-        if (req.getContent() != null) {
-            resume.setContent(req.getContent());
-        }
-        resume.setUpdatedAt(LocalDateTime.now());
-        resumeMapper.updateById(resume);
-        return toVO(resume);
-    }
-
-    public void delete(Long userId, Long id) {
-        requireOwned(userId, id);
-        resumeMapper.deleteById(id);
-    }
-
-    public ImportResultVO importFile(Long userId, MultipartFile file) throws IOException {
-        validateFile(file);
-        String fileType = fileParseService.detectType(file.getOriginalFilename());
-        if ("UNKNOWN".equals(fileType)) {
-            throw new IllegalArgumentException("仅支持 .doc/.docx/.pdf/.jpg/.jpeg/.png");
-        }
-
-        FileStorageService.StoredFile stored = fileStorageService.store(file);
-        String text = fileParseService.parse(stored.path(), fileType);
-        if (isImage(fileType)) {
-            text = "";
-        }
-
-        String title = stripExt(stored.originalName());
-        Resume resume = new Resume();
-        resume.setUserId(userId);
-        resume.setTitle(title);
-        resume.setContent(text.isBlank() ? "（导入内容为空，图片请执行OCR）" : text);
-        resume.setCreatedAt(LocalDateTime.now());
-        resume.setUpdatedAt(LocalDateTime.now());
-        resumeMapper.insert(resume);
-
-        ResumeFile record = saveFileRecord(userId, resume.getId(), stored, fileType, text);
-
-        ImportResultVO vo = new ImportResultVO();
-        vo.setResumeId(resume.getId());
-        vo.setTitle(resume.getTitle());
-        vo.setContent(resume.getContent());
-        vo.setFileId(record.getId());
-        vo.setFileType(fileType);
-        return vo;
-    }
-
-    public ResumeFile uploadFile(Long userId, Long resumeId, MultipartFile file) throws IOException {
-        requireOwned(userId, resumeId);
-        validateFile(file);
-        String fileType = fileParseService.detectType(file.getOriginalFilename());
-        FileStorageService.StoredFile stored = fileStorageService.store(file);
-        return saveFileRecord(userId, resumeId, stored, fileType, null);
-    }
-
-    public OcrResultVO runOcr(Long userId, Long fileId) {
-        ResumeFile file = requireOwnedFile(userId, fileId);
-        String type = file.getFileType();
-        if (!isImage(type)) {
-            throw new IllegalArgumentException("仅支持图片OCR");
-        }
-        String text = ocrService.recognize(fileStorageService.resolve(file.getFilePath()), type);
-        file.setOcrText(text);
-        resumeFileMapper.updateById(file);
-
-        Resume resume = resumeMapper.selectById(file.getResumeId());
-        if (resume != null && userId.equals(resume.getUserId())) {
-            resume.setContent(text);
-            resume.setUpdatedAt(LocalDateTime.now());
-            resumeMapper.updateById(resume);
-        }
-
-        OcrResultVO vo = new OcrResultVO();
-        vo.setFileId(fileId);
-        vo.setOcrText(text);
-        return vo;
-    }
-
-    public byte[] exportPdf(Long userId, Long id) throws IOException {
-        Resume resume = requireOwned(userId, id);
-        return exportService.exportPdf(resume.getTitle(), resume.getContent());
-    }
-
-    public byte[] exportDocx(Long userId, Long id) throws IOException {
-        Resume resume = requireOwned(userId, id);
-        return exportService.exportDocx(resume.getTitle(), resume.getContent());
-    }
-
-    public byte[] exportText(Long userId, Long id) {
-        Resume resume = requireOwned(userId, id);
-        return exportService.exportText(resume.getTitle(), resume.getContent());
-    }
-
-    public Long resolveUserId(String authorization) {
-        Long userId = JwtTokenUtil.getUserIdFromAuthorization(authorization);
-        return userId == null ? 1L : userId;
-    }
-
-    private Resume requireOwned(Long userId, Long id) {
+    public Resume getResume(Long id, Long userId) {
         Resume resume = resumeMapper.selectById(id);
-        if (resume == null || !userId.equals(resume.getUserId())) {
-            throw new IllegalArgumentException("简历不存在");
+        if (resume == null || !resume.getUserId().equals(userId)) {
+            throw new BusinessException(404, "\u7b80\u5386\u4e0d\u5b58\u5728");
         }
         return resume;
     }
 
-    private ResumeFile requireOwnedFile(Long userId, Long fileId) {
-        ResumeFile file = resumeFileMapper.selectById(fileId);
-        if (file == null || !userId.equals(file.getUserId())) {
-            throw new IllegalArgumentException("文件不存在");
+    public List<Resume> listResumes(Long userId) {
+        return resumeMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Resume>()
+                        .eq(Resume::getUserId, userId)
+                        .orderByDesc(Resume::getUpdatedAt));
+    }
+
+    public void updateResumeTitle(Long id, Long userId, String title) {
+        Resume resume = getResume(id, userId);
+        resume.setTitle(title);
+        resumeMapper.updateById(resume);
+    }
+
+    @Transactional
+    public void deleteResume(Long id, Long userId) {
+        Resume resume = getResume(id, userId);
+        resumeDetailMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ResumeDetail>()
+                .eq(ResumeDetail::getResumeId, id));
+        resumeMapper.deleteById(id);
+    }
+
+    // ========== 绠€鍘嗘槑缁嗗垎娈?CRUD ==========
+
+    public List<ResumeDetail> getDetails(Long resumeId, Long userId) {
+        getResume(resumeId, userId);
+        return resumeDetailMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ResumeDetail>()
+                        .eq(ResumeDetail::getResumeId, resumeId)
+                        .orderByAsc(ResumeDetail::getSortOrder));
+    }
+
+    @Transactional
+    public ResumeDetail addDetail(Long resumeId, Long userId, String sectionType, String sectionName, String content, Integer sortOrder) {
+        getResume(resumeId, userId);
+        ResumeDetail detail = new ResumeDetail();
+        detail.setResumeId(resumeId);
+        detail.setSectionType(sectionType);
+        detail.setSectionName(sectionName);
+        detail.setContent(content);
+        detail.setSortOrder(sortOrder == null ? 0 : sortOrder);
+        resumeDetailMapper.insert(detail);
+        return detail;
+    }
+
+    @Transactional
+    public void updateDetail(Long detailId, Long userId, String content) {
+        ResumeDetail detail = resumeDetailMapper.selectById(detailId);
+        if (detail == null) {
+            throw new BusinessException(404, "\u5206\u6bb5\u4e0d\u5b58\u5728");
         }
-        return file;
-    }
-
-    private ResumeFile saveFileRecord(Long userId, Long resumeId, FileStorageService.StoredFile stored,
-                                      String fileType, String ocrText) {
-        ResumeFile record = new ResumeFile();
-        record.setUserId(userId);
-        record.setResumeId(resumeId);
-        record.setFileType(fileType);
-        record.setFilePath(stored.storedName());
-        record.setFileSize(stored.size());
-        record.setOriginalName(stored.originalName());
-        record.setOcrText(ocrText);
-        record.setCreatedAt(LocalDateTime.now());
-        resumeFileMapper.insert(record);
-        return record;
-    }
-
-    private void validateFile(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("文件不能为空");
+        Resume resume = resumeMapper.selectById(detail.getResumeId());
+        if (resume == null || !resume.getUserId().equals(userId)) {
+            throw new BusinessException(403, "\u65e0\u6743\u8bbf\u95ee");
         }
-        if (file.getSize() > storageProperties.getMaxFileSize()) {
-            throw new IllegalArgumentException("文件大小超过限制");
+        detail.setContent(content);
+        resumeDetailMapper.updateById(detail);
+    }
+
+    @Transactional
+    public void deleteDetail(Long detailId, Long userId) {
+        ResumeDetail detail = resumeDetailMapper.selectById(detailId);
+        if (detail == null) {
+            return;
+        }
+        Resume resume = resumeMapper.selectById(detail.getResumeId());
+        if (resume == null || !resume.getUserId().equals(userId)) {
+            throw new BusinessException(403, "\u65e0\u6743\u8bbf\u95ee");
+        }
+        resumeDetailMapper.deleteById(detailId);
+    }
+
+    // ========== 鏂囦欢涓婁紶 ==========
+
+    public ResumeFile uploadFile(Long userId, Long resumeId, MultipartFile file) {
+        String originalName = file.getOriginalFilename();
+        if (originalName == null || originalName.isBlank()) {
+            throw new BusinessException(400, "\u6587\u4ef6\u540d\u4e0d\u80fd\u4e3a\u7a7a");
+        }
+
+        String ext = getExtension(originalName).toLowerCase();
+        if (!List.of("jpg", "jpeg", "png", "pdf", "docx").contains(ext)) {
+            throw new BusinessException(400, "\u4e0d\u652f\u6301\u7684\u6587\u4ef6\u7c7b\u578b: " + ext);
+        }
+
+        String storageName = UUID.randomUUID().toString() + "." + ext;
+        Path uploadPath = Paths.get(storageProperties.getUploadDir()).toAbsolutePath().normalize();
+        try {
+            Files.createDirectories(uploadPath);
+            Path targetPath = uploadPath.resolve(storageName);
+            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+
+            ResumeFile resumeFile = new ResumeFile();
+            resumeFile.setUserId(userId);
+            resumeFile.setResumeId(resumeId);
+            resumeFile.setFileType(ext.toUpperCase());
+            resumeFile.setFilePath(targetPath.toString());
+            resumeFile.setFileSize(file.getSize());
+            resumeFile.setOriginalName(originalName);
+            resumeFileMapper.insert(resumeFile);
+            return resumeFile;
+        } catch (IOException e) {
+            log.error("鏂囦欢涓婁紶澶辫触", e);
+            throw new BusinessException(500, "\u6587\u4ef6\u4e0a\u4f20\u5931\u8d25: " + e.getMessage());
         }
     }
 
-    private ResumeVO toVO(Resume resume) {
-        ResumeVO vo = new ResumeVO();
-        vo.setId(resume.getId());
-        vo.setTitle(resume.getTitle());
-        vo.setContent(resume.getContent());
-        vo.setUpdatedAt(resume.getUpdatedAt() == null ? null : resume.getUpdatedAt().format(FMT));
-        return vo;
+    public ResumeFile extractFileText(Long fileId, Long userId) {
+        ResumeFile resumeFile = resumeFileMapper.selectById(fileId);
+        if (resumeFile == null || !resumeFile.getUserId().equals(userId)) {
+            throw new BusinessException(404, "\u6587\u4ef6\u4e0d\u5b58\u5728");
+        }
+        try {
+            Path filePath = Paths.get(resumeFile.getFilePath());
+            String text = fileParseService.parse(filePath, resumeFile.getFileType());
+            resumeFile.setOcrText(text);
+            resumeFileMapper.updateById(resumeFile);
+            return resumeFile;
+        } catch (IOException e) {
+            log.error("File text extraction failed, fileId={}", fileId, e);
+            throw new BusinessException(500, "\u6587\u4ef6\u5185\u5bb9\u63d0\u53d6\u5931\u8d25: " + e.getMessage());
+        }
     }
 
-    private String defaultTitle(String title) {
-        return title == null || title.isBlank() ? "未命名简历" : title;
+    // ========== OCR识别（JPG图片 -> 通义千问VL-OCR）===========
+
+    public ResumeFile ocrImage(Long fileId, Long userId) {
+        ResumeFile resumeFile = resumeFileMapper.selectById(fileId);
+        if (resumeFile == null || !resumeFile.getUserId().equals(userId)) {
+            throw new BusinessException(404, "\u6587\u4ef6\u4e0d\u5b58\u5728");
+        }
+        if (!List.of("JPG", "JPEG", "PNG").contains(resumeFile.getFileType())) {
+            throw new BusinessException(400, "\u4ec5\u652f\u6301 JPG/PNG \u56fe\u7247\u8fdb\u884c OCR \u8bc6\u522b");
+        }
+
+        if (qwenApiKey == null || qwenApiKey.isBlank()) {
+            throw new BusinessException(500, "OCR \u670d\u52a1\u672a\u914d\u7f6e");
+        }
+
+        try {
+            Path imagePath = Paths.get(resumeFile.getFilePath());
+            byte[] imageBytes = Files.readAllBytes(imagePath);
+            String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+
+            Map<String, Object> payload = Map.of(
+                "model", QWEN_OCR_MODEL,
+                "messages", List.of(
+                    Map.of(
+                        "role", "user",
+                        "content", List.of(
+                            Map.of("type", "image_url", "image_url", Map.of("url", "data:image/jpeg;base64," + base64Image)),
+                            Map.of("type", "text", "text", "\u8bf7\u5b8c\u6574\u8bc6\u522b\u56fe\u7247\u4e2d\u7684\u6587\u5b57\u5185\u5bb9\uff0c\u4fdd\u6301\u539f\u6709\u6bb5\u843d\u7ed3\u6784\u548c\u683c\u5f0f\uff0c\u4e0d\u8981\u9057\u6f0f\u4efb\u4f55\u6587\u5b57\u3002")
+                        )
+                    )
+                )
+            );
+
+            String requestBody = objectMapper.writeValueAsString(payload);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(QWEN_VL_OCR_URL))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + qwenApiKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() != 200) {
+                log.error("OCR璋冪敤澶辫触, status={}, body={}", response.statusCode(), response.body());
+                throw new BusinessException(500, "OCR \u8bc6\u522b\u670d\u52a1\u8c03\u7528\u5931\u8d25");
+            }
+
+            JsonNode json = objectMapper.readTree(response.body());
+            String ocrText = json.at("/choices/0/message/content").asText();
+
+            if (ocrText == null || ocrText.isBlank()) {
+                throw new BusinessException(500, "OCR \u8bc6\u522b\u7ed3\u679c\u4e3a\u7a7a");
+            }
+
+            resumeFile.setOcrText(ocrText);
+            resumeFileMapper.updateById(resumeFile);
+            return resumeFile;
+
+        } catch (IOException e) {
+            log.error("OCR璇诲彇鍥剧墖澶辫触", e);
+            throw new BusinessException(500, "OCR \u8bc6\u522b\u5931\u8d25: \u56fe\u7247\u8bfb\u53d6\u9519\u8bef");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException(500, "OCR \u8bc6\u522b\u8bf7\u6c42\u88ab\u4e2d\u65ad");
+        }
     }
 
-    private String defaultContent(String content) {
-        return content == null ? "" : content;
+    public List<ResumeFile> listFiles(Long userId, Long resumeId) {
+        if (resumeId != null) {
+            return resumeFileMapper.selectList(
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ResumeFile>()
+                            .eq(ResumeFile::getUserId, userId)
+                            .eq(ResumeFile::getResumeId, resumeId)
+                            .orderByDesc(ResumeFile::getCreatedAt));
+        }
+        return resumeFileMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ResumeFile>()
+                        .eq(ResumeFile::getUserId, userId)
+                        .orderByDesc(ResumeFile::getCreatedAt));
     }
 
-    private String stripExt(String name) {
-        int dot = name.lastIndexOf('.');
-        return dot > 0 ? name.substring(0, dot) : name;
-    }
-
-    private boolean isImage(String type) {
-        return "JPG".equalsIgnoreCase(type) || "JPEG".equalsIgnoreCase(type) || "PNG".equalsIgnoreCase(type);
+    private String getExtension(String filename) {
+        int idx = filename.lastIndexOf(".");
+        return idx == -1 ? "" : filename.substring(idx + 1);
     }
 }
+
+

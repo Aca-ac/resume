@@ -68,20 +68,3 @@ management:
   endpoint:
     health:
       show-details: when_authorized
-
-
-
-email:
-  smtp:
-    host: smtp.qq.com
-    port: 587
-    username: 1317978599@qq.com
-    password: lysbbtvvlnwmjdjd
-    protocol: smtp
-    timeout: 5000
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true

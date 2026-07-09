@@ -8,3 +8,10 @@ target/
 .env
 server/.m2/
 server/out/
+
+# Temp files
+*.py
+*.err
+.mvn/
+**/.mvn/
+server/server/

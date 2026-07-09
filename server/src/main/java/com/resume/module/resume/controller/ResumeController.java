@@ -1,108 +1,119 @@
 package com.resume.module.resume.controller;
 
-import com.resume.module.resume.dto.*;
+import com.resume.common.Result;
+import com.resume.module.resume.entity.Resume;
+import com.resume.module.resume.entity.ResumeDetail;
 import com.resume.module.resume.entity.ResumeFile;
 import com.resume.module.resume.service.ResumeService;
-import org.springframework.http.HttpHeaders;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/resumes")
+@RequiredArgsConstructor
 public class ResumeController {
 
     private final ResumeService resumeService;
 
-    public ResumeController(ResumeService resumeService) {
-        this.resumeService = resumeService;
-    }
+    // ========== 简历主表 ==========
 
-    @GetMapping
-    public PageResult<ResumeVO> list(@RequestHeader(value = "Authorization", required = false) String authorization,
-                                   @RequestParam(defaultValue = "1") int page,
-                                   @RequestParam(defaultValue = "100") int size) {
-        return resumeService.list(resumeService.resolveUserId(authorization), page, size);
+    @PostMapping
+    public Result<Resume> createResume(@RequestAttribute Long userId,
+                                       @RequestParam(required = false) String title) {
+        return Result.success(resumeService.createResume(userId, title));
     }
 
     @GetMapping("/{id}")
-    public ResumeVO get(@RequestHeader(value = "Authorization", required = false) String authorization,
-                        @PathVariable Long id) {
-        return resumeService.get(resumeService.resolveUserId(authorization), id);
+    public Result<Resume> getResume(@PathVariable Long id, @RequestAttribute Long userId) {
+        return Result.success(resumeService.getResume(id, userId));
     }
 
-    @PostMapping
-    public ResumeVO create(@RequestHeader(value = "Authorization", required = false) String authorization,
-                           @RequestBody ResumeSaveRequest request) {
-        return resumeService.create(resumeService.resolveUserId(authorization), request);
+    @GetMapping
+    public Result<List<Resume>> listResumes(@RequestAttribute Long userId) {
+        return Result.success(resumeService.listResumes(userId));
     }
 
     @PutMapping("/{id}")
-    public ResumeVO update(@RequestHeader(value = "Authorization", required = false) String authorization,
-                           @PathVariable Long id,
-                           @RequestBody ResumeSaveRequest request) {
-        return resumeService.update(resumeService.resolveUserId(authorization), id, request);
+    public Result<Void> updateTitle(@PathVariable Long id,
+                                    @RequestAttribute Long userId,
+                                    @RequestParam String title) {
+        resumeService.updateResumeTitle(id, userId, title);
+        return Result.success();
     }
 
     @DeleteMapping("/{id}")
-    public Map<String, Boolean> delete(@RequestHeader(value = "Authorization", required = false) String authorization,
-                                       @PathVariable Long id) {
-        resumeService.delete(resumeService.resolveUserId(authorization), id);
-        return Map.of("success", true);
+    public Result<Void> deleteResume(@PathVariable Long id, @RequestAttribute Long userId) {
+        resumeService.deleteResume(id, userId);
+        return Result.success();
     }
 
-    @PostMapping("/import")
-    public ImportResultVO importResume(@RequestHeader(value = "Authorization", required = false) String authorization,
-                                       @RequestParam("file") MultipartFile file) throws IOException {
-        return resumeService.importFile(resumeService.resolveUserId(authorization), file);
+    // ========== 简历明细分段 ==========
+
+    @GetMapping("/{resumeId}/details")
+    public Result<List<ResumeDetail>> getDetails(@PathVariable Long resumeId,
+                                                 @RequestAttribute Long userId) {
+        return Result.success(resumeService.getDetails(resumeId, userId));
     }
 
-    @PostMapping("/{resumeId}/files")
-    public ResumeFile uploadFile(@RequestHeader(value = "Authorization", required = false) String authorization,
-                                 @PathVariable Long resumeId,
-                                 @RequestParam("file") MultipartFile file) throws IOException {
-        return resumeService.uploadFile(resumeService.resolveUserId(authorization), resumeId, file);
+    @PostMapping("/{resumeId}/details")
+    public Result<ResumeDetail> addDetail(@PathVariable Long resumeId,
+                                          @RequestAttribute Long userId,
+                                          @RequestParam String sectionType,
+                                          @RequestParam String sectionName,
+                                          @RequestParam String content,
+                                          @RequestParam(required = false) Integer sortOrder) {
+        return Result.success(resumeService.addDetail(resumeId, userId, sectionType, sectionName, content, sortOrder));
     }
 
+    @PutMapping("/details/{detailId}")
+    public Result<Void> updateDetail(@PathVariable Long detailId,
+                                     @RequestAttribute Long userId,
+                                     @RequestParam String content) {
+        resumeService.updateDetail(detailId, userId, content);
+        return Result.success();
+    }
+
+    @DeleteMapping("/details/{detailId}")
+    public Result<Void> deleteDetail(@PathVariable Long detailId,
+                                     @RequestAttribute Long userId) {
+        resumeService.deleteDetail(detailId, userId);
+        return Result.success();
+    }
+
+    // ========== 文件上传与内容提取 ==========
+
+    @PostMapping(value = "/{resumeId}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Result<ResumeFile> uploadFile(@PathVariable Long resumeId,
+                                         @RequestAttribute Long userId,
+                                         @RequestParam("file") MultipartFile file) {
+        return Result.success(resumeService.uploadFile(userId, resumeId, file));
+    }
+
+    @GetMapping("/files")
+    public Result<List<ResumeFile>> listFiles(@RequestAttribute Long userId,
+                                              @RequestParam(required = false) Long resumeId) {
+        return Result.success(resumeService.listFiles(userId, resumeId));
+    }
+
+    /**
+     * 提取 PDF/DOCX 文件的文本内容（不调用 OCR，直接解析）
+     */
+    @PostMapping("/files/{fileId}/extract")
+    public Result<ResumeFile> extractFileText(@PathVariable Long fileId,
+                                       @RequestAttribute Long userId) {
+        return Result.success(resumeService.extractFileText(fileId, userId));
+    }
+
+    /**
+     * JPG/PNG 图片 OCR 识别（调用通义千问 OCR）
+     */
     @PostMapping("/files/{fileId}/ocr")
-    public OcrResultVO ocr(@RequestHeader(value = "Authorization", required = false) String authorization,
-                           @PathVariable Long fileId) {
-        return resumeService.runOcr(resumeService.resolveUserId(authorization), fileId);
-    }
-
-    @GetMapping("/{id}/export/pdf")
-    public ResponseEntity<byte[]> exportPdf(@RequestHeader(value = "Authorization", required = false) String authorization,
-                                            @PathVariable Long id) throws IOException {
-        return download(resumeService.exportPdf(resumeService.resolveUserId(authorization), id),
-                "resume-" + id + ".pdf", MediaType.APPLICATION_PDF);
-    }
-
-    @GetMapping("/{id}/export/docx")
-    public ResponseEntity<byte[]> exportDocx(@RequestHeader(value = "Authorization", required = false) String authorization,
-                                             @PathVariable Long id) throws IOException {
-        return download(resumeService.exportDocx(resumeService.resolveUserId(authorization), id),
-                "resume-" + id + ".docx",
-                MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
-    }
-
-    @GetMapping("/{id}/export/text")
-    public ResponseEntity<byte[]> exportText(@RequestHeader(value = "Authorization", required = false) String authorization,
-                                             @PathVariable Long id) {
-        return download(resumeService.exportText(resumeService.resolveUserId(authorization), id),
-                "resume-" + id + ".txt", MediaType.TEXT_PLAIN);
-    }
-
-    private ResponseEntity<byte[]> download(byte[] data, String filename, MediaType mediaType) {
-        String encoded = URLEncoder.encode(filename, StandardCharsets.UTF_8).replace("+", "%20");
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encoded)
-                .contentType(mediaType)
-                .body(data);
+    public Result<ResumeFile> ocrImage(@PathVariable Long fileId,
+                                       @RequestAttribute Long userId) {
+        return Result.success(resumeService.ocrImage(fileId, userId));
     }
 }

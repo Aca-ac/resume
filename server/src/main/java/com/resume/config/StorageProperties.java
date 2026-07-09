@@ -9,5 +9,5 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "app.storage")
 public class StorageProperties {
     private String uploadDir = "uploads/resumes";
-    private long maxFileSize = 10 * 1024 * 1024;
+    private long maxFileSize = 10 * 1024 * 1024; // 10MB
 }
