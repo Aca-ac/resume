@@ -1,55 +1,40 @@
-<!-- src/views/Login.vue -->
+<!-- src/views/ForgotPassword.vue -->
 <template>
   <div class="auth-container">
     <div class="auth-card">
-      <h1 class="auth-title">欢迎回来</h1>
-      <p class="auth-subtitle">登录您的账号，管理简历与面试</p>
+      <h1 class="auth-title">忘记密码</h1>
+      <p class="auth-subtitle">输入您的邮箱，我们将发送重置链接</p>
 
       <el-form
-          ref="loginFormRef"
-          :model="loginForm"
+          ref="forgotFormRef"
+          :model="forgotForm"
           :rules="rules"
           label-width="0"
-          @submit.prevent="handleLogin"
+          @submit.prevent="handleSubmit"
       >
         <el-form-item prop="email">
           <el-input
-              v-model="loginForm.email"
+              v-model="forgotForm.email"
               placeholder="请输入邮箱"
               size="large"
               prefix-icon="Message"
           />
         </el-form-item>
 
-        <el-form-item prop="password">
-          <el-input
-              v-model="loginForm.password"
-              type="password"
-              placeholder="请输入密码"
-              size="large"
-              prefix-icon="Lock"
-              show-password
-          />
-        </el-form-item>
-
-        <div class="form-options">
-          <router-link to="/reset-password" class="forgot-link">忘记密码？</router-link>
-        </div>
-
         <el-button
             type="primary"
             size="large"
             class="auth-btn"
             :loading="loading"
-            @click="handleLogin"
+            @click="handleSubmit"
         >
-          登录
+          发送重置邮件
         </el-button>
       </el-form>
 
       <div class="auth-footer">
-        还没有账号？
-        <router-link to="/register" class="auth-link">立即注册</router-link>
+        想起密码了？
+        <router-link to="/login" class="auth-link">返回登录</router-link>
       </div>
     </div>
   </div>
@@ -57,56 +42,42 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { ElForm } from 'element-plus'
+import { useRouter } from 'vue-router'
+import { ElForm, ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
-const route = useRoute()
 const authStore = useAuthStore()
 
-const loginFormRef = ref<InstanceType<typeof ElForm>>()
+const forgotFormRef = ref<InstanceType<typeof ElForm>>()
 const loading = ref(false)
 
-const loginForm = ref({
-  email: '',
-  password: ''
+const forgotForm = ref({
+  email: ''
 })
 
 const rules = {
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
     { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
-  ],
-  password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '密码长度在6-20位之间', trigger: 'blur' }
   ]
 }
 
-const handleLogin = async () => {
-  if (!loginFormRef.value) return
+const handleSubmit = async () => {
+  if (!forgotFormRef.value) return
 
-  await loginFormRef.value.validate(async (valid) => {
+  await forgotFormRef.value.validate(async (valid) => {
     if (!valid) return
 
     loading.value = true
     try {
-      const result = await authStore.login(
-          loginForm.value.email,
-          loginForm.value.password
-      )
-
+      const result = await authStore.sendCode(forgotForm.value.email)
       if (result.success) {
-        // 检查是否有重定向参数（比如从某个需要登录的页面跳转过来）
-        const redirect = route.query.redirect as string
-        if (redirect) {
-          // 如果有重定向参数，跳转到指定页面
-          router.push(redirect)
-        } else {
-          // 默认跳转到 dashboard
-          router.push('/dashboard')
-        }
+        // 跳转到重置密码页面，带上邮箱参数
+        router.push({
+          path: '/reset-password',
+          query: { email: forgotForm.value.email }
+        })
       }
     } finally {
       loading.value = false
@@ -145,22 +116,6 @@ const handleLogin = async () => {
   color: #6b7280;
   text-align: center;
   margin: 0 0 32px;
-}
-
-.form-options {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 24px;
-}
-
-.forgot-link {
-  font-size: 14px;
-  color: #667eea;
-  text-decoration: none;
-}
-
-.forgot-link:hover {
-  text-decoration: underline;
 }
 
 .auth-btn {
