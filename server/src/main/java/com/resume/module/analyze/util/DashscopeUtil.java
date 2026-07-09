@@ -1,5 +1,4 @@
 package com.resume.module.analyze.util;
-
 import java.util.Arrays;
 import com.alibaba.dashscope.aigc.generation.Generation;
 import com.alibaba.dashscope.aigc.generation.GenerationParam;
@@ -12,17 +11,13 @@ import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.alibaba.dashscope.utils.Constants;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-
 @Component
 public class DashscopeUtil {
-
     @Value("${app.ai.qwen.api-key:}")
     private String apiKey;
-
     static {
         Constants.baseHttpApiUrl = "https://ws-ai0lwpilsl2yp798.cn-beijing.maas.aliyuncs.com/api/v1";
     }
-
     public String singleSystemChat(String systemMessage) throws ApiException, NoApiKeyException, InputRequiredException {
         Generation gen = new Generation();
         Message systemMsg = Message.builder()
@@ -34,6 +29,8 @@ public class DashscopeUtil {
                 .model("qwen-plus")
                 .messages(Arrays.asList(systemMsg))
                 .resultFormat(GenerationParam.ResultFormat.MESSAGE)
+                // 仅新增这一行，强制开启联网搜索，无其他改动
+                .enableSearch(true)
                 .build();
         GenerationResult result = gen.call(param);
         return result.getOutput().getChoices().get(0).getMessage().getContent();
