@@ -22,10 +22,3 @@ logging:
     com.resume: debug
 
 # OCR配置
-<<<<<<< HEAD
-app:
-  ai:
-    qwen:
-      api-key: ${DASHSCOPE_API_KEY:${QWEN_API_KEY:}}
-=======
->>>>>>> origin/main

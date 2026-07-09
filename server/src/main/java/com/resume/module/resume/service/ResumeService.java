@@ -40,6 +40,7 @@ public class ResumeService {
     private final ResumeDetailMapper resumeDetailMapper;
     private final ResumeFileMapper resumeFileMapper;
     private final StorageProperties storageProperties;
+    private final FileParseService fileParseService;
 
     @Value("${app.ai.qwen.api-key:}")
     private String qwenApiKey;
@@ -49,12 +50,12 @@ public class ResumeService {
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // ========== 简历主表 CRUD ==========
+    // ========== 绠€鍘嗕富琛?CRUD ==========
 
     public Resume createResume(Long userId, String title) {
         Resume resume = new Resume();
         resume.setUserId(userId);
-        resume.setTitle(title == null || title.isBlank() ? "未命名简历" : title);
+        resume.setTitle(title == null || title.isBlank() ? "\u672a\u547d\u540d\u7b80\u5386" : title);
         resume.setVersion(1);
         resumeMapper.insert(resume);
         return resume;
@@ -63,7 +64,7 @@ public class ResumeService {
     public Resume getResume(Long id, Long userId) {
         Resume resume = resumeMapper.selectById(id);
         if (resume == null || !resume.getUserId().equals(userId)) {
-            throw new BusinessException(404, "简历不存在");
+            throw new BusinessException(404, "\u7b80\u5386\u4e0d\u5b58\u5728");
         }
         return resume;
     }
@@ -89,7 +90,7 @@ public class ResumeService {
         resumeMapper.deleteById(id);
     }
 
-    // ========== 简历明细分段 CRUD ==========
+    // ========== 绠€鍘嗘槑缁嗗垎娈?CRUD ==========
 
     public List<ResumeDetail> getDetails(Long resumeId, Long userId) {
         getResume(resumeId, userId);
@@ -116,11 +117,11 @@ public class ResumeService {
     public void updateDetail(Long detailId, Long userId, String content) {
         ResumeDetail detail = resumeDetailMapper.selectById(detailId);
         if (detail == null) {
-            throw new BusinessException(404, "分段不存在");
+            throw new BusinessException(404, "\u5206\u6bb5\u4e0d\u5b58\u5728");
         }
         Resume resume = resumeMapper.selectById(detail.getResumeId());
         if (resume == null || !resume.getUserId().equals(userId)) {
-            throw new BusinessException(403, "无权限");
+            throw new BusinessException(403, "\u65e0\u6743\u8bbf\u95ee");
         }
         detail.setContent(content);
         resumeDetailMapper.updateById(detail);
@@ -134,22 +135,22 @@ public class ResumeService {
         }
         Resume resume = resumeMapper.selectById(detail.getResumeId());
         if (resume == null || !resume.getUserId().equals(userId)) {
-            throw new BusinessException(403, "无权限");
+            throw new BusinessException(403, "\u65e0\u6743\u8bbf\u95ee");
         }
         resumeDetailMapper.deleteById(detailId);
     }
 
-    // ========== 文件上传 ==========
+    // ========== 鏂囦欢涓婁紶 ==========
 
     public ResumeFile uploadFile(Long userId, Long resumeId, MultipartFile file) {
         String originalName = file.getOriginalFilename();
         if (originalName == null || originalName.isBlank()) {
-            throw new BusinessException(400, "文件名不能为空");
+            throw new BusinessException(400, "\u6587\u4ef6\u540d\u4e0d\u80fd\u4e3a\u7a7a");
         }
 
         String ext = getExtension(originalName).toLowerCase();
         if (!List.of("jpg", "jpeg", "png", "pdf", "docx").contains(ext)) {
-            throw new BusinessException(400, "不支持的文件类型: " + ext);
+            throw new BusinessException(400, "\u4e0d\u652f\u6301\u7684\u6587\u4ef6\u7c7b\u578b: " + ext);
         }
 
         String storageName = UUID.randomUUID().toString() + "." + ext;
@@ -169,24 +170,41 @@ public class ResumeService {
             resumeFileMapper.insert(resumeFile);
             return resumeFile;
         } catch (IOException e) {
-            log.error("文件上传失败", e);
-            throw new BusinessException(500, "文件上传失败: " + e.getMessage());
+            log.error("鏂囦欢涓婁紶澶辫触", e);
+            throw new BusinessException(500, "\u6587\u4ef6\u4e0a\u4f20\u5931\u8d25: " + e.getMessage());
         }
     }
 
-    // ========== OCR识别（JPG图片 -> 通义千问VL-OCR） ==========
+    public ResumeFile extractFileText(Long fileId, Long userId) {
+        ResumeFile resumeFile = resumeFileMapper.selectById(fileId);
+        if (resumeFile == null || !resumeFile.getUserId().equals(userId)) {
+            throw new BusinessException(404, "\u6587\u4ef6\u4e0d\u5b58\u5728");
+        }
+        try {
+            Path filePath = Paths.get(resumeFile.getFilePath());
+            String text = fileParseService.parse(filePath, resumeFile.getFileType());
+            resumeFile.setOcrText(text);
+            resumeFileMapper.updateById(resumeFile);
+            return resumeFile;
+        } catch (IOException e) {
+            log.error("File text extraction failed, fileId={}", fileId, e);
+            throw new BusinessException(500, "\u6587\u4ef6\u5185\u5bb9\u63d0\u53d6\u5931\u8d25: " + e.getMessage());
+        }
+    }
+
+    // ========== OCR识别（JPG图片 -> 通义千问VL-OCR）===========
 
     public ResumeFile ocrImage(Long fileId, Long userId) {
         ResumeFile resumeFile = resumeFileMapper.selectById(fileId);
         if (resumeFile == null || !resumeFile.getUserId().equals(userId)) {
-            throw new BusinessException(404, "文件不存在");
+            throw new BusinessException(404, "\u6587\u4ef6\u4e0d\u5b58\u5728");
         }
         if (!List.of("JPG", "JPEG", "PNG").contains(resumeFile.getFileType())) {
-            throw new BusinessException(400, "仅支持JPG/PNG图片进行OCR识别");
+            throw new BusinessException(400, "\u4ec5\u652f\u6301 JPG/PNG \u56fe\u7247\u8fdb\u884c OCR \u8bc6\u522b");
         }
 
         if (qwenApiKey == null || qwenApiKey.isBlank()) {
-            throw new BusinessException(500, "OCR服务未配置");
+            throw new BusinessException(500, "OCR \u670d\u52a1\u672a\u914d\u7f6e");
         }
 
         try {
@@ -201,7 +219,7 @@ public class ResumeService {
                         "role", "user",
                         "content", List.of(
                             Map.of("type", "image_url", "image_url", Map.of("url", "data:image/jpeg;base64," + base64Image)),
-                            Map.of("type", "text", "text", "请完整识别图片中的文字内容，保持原有段落结构和格式，不要遗漏任何文字。")
+                            Map.of("type", "text", "text", "\u8bf7\u5b8c\u6574\u8bc6\u522b\u56fe\u7247\u4e2d\u7684\u6587\u5b57\u5185\u5bb9\uff0c\u4fdd\u6301\u539f\u6709\u6bb5\u843d\u7ed3\u6784\u548c\u683c\u5f0f\uff0c\u4e0d\u8981\u9057\u6f0f\u4efb\u4f55\u6587\u5b57\u3002")
                         )
                     )
                 )
@@ -219,15 +237,15 @@ public class ResumeService {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() != 200) {
-                log.error("OCR调用失败, status={}, body={}", response.statusCode(), response.body());
-                throw new BusinessException(500, "OCR识别服务调用失败");
+                log.error("OCR璋冪敤澶辫触, status={}, body={}", response.statusCode(), response.body());
+                throw new BusinessException(500, "OCR \u8bc6\u522b\u670d\u52a1\u8c03\u7528\u5931\u8d25");
             }
 
             JsonNode json = objectMapper.readTree(response.body());
             String ocrText = json.at("/choices/0/message/content").asText();
 
             if (ocrText == null || ocrText.isBlank()) {
-                throw new BusinessException(500, "OCR识别结果为空");
+                throw new BusinessException(500, "OCR \u8bc6\u522b\u7ed3\u679c\u4e3a\u7a7a");
             }
 
             resumeFile.setOcrText(ocrText);
@@ -235,11 +253,11 @@ public class ResumeService {
             return resumeFile;
 
         } catch (IOException e) {
-            log.error("OCR读取图片失败", e);
-            throw new BusinessException(500, "OCR识别失败: 图片读取错误");
+            log.error("OCR璇诲彇鍥剧墖澶辫触", e);
+            throw new BusinessException(500, "OCR \u8bc6\u522b\u5931\u8d25: \u56fe\u7247\u8bfb\u53d6\u9519\u8bef");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new BusinessException(500, "OCR识别请求被中断");
+            throw new BusinessException(500, "OCR \u8bc6\u522b\u8bf7\u6c42\u88ab\u4e2d\u65ad");
         }
     }
 

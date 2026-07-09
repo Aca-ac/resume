@@ -1,4 +1,4 @@
-﻿package com.resume.module.resume.controller;
+package com.resume.module.resume.controller;
 
 import com.resume.common.Result;
 import com.resume.module.resume.entity.Resume;
@@ -115,5 +115,5 @@ public class ResumeController {
     public Result<ResumeFile> ocrImage(@PathVariable Long fileId,
                                        @RequestAttribute Long userId) {
         return Result.success(resumeService.ocrImage(fileId, userId));
-}
+    }
 }

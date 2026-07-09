@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia'
 import { getUserProfileApi, updateUserProfileApi } from '@/api/user'
-import type { ApiResult, UserProfile, UpdateProfileReq } from '@/types/api'
+import type { ApiResponse, UserProfile, UpdateProfileRequest } from '@/types/api'
 import { ElMessage } from 'element-plus'
-import { useAuthStore } from './auth'
 
 interface UserState {
     // 用户完整信息
@@ -31,7 +30,7 @@ export const useUserStore = defineStore('user', {
          */
         async loadProfile() {
             try {
-                const res: ApiResult<UserProfile> = await getUserProfileApi()
+                const res: ApiResponse<UserProfile> = await getUserProfileApi()
                 this.profile = res.data
                 this.hasLoaded = true
                 return res.data
@@ -46,8 +45,8 @@ export const useUserStore = defineStore('user', {
          * 编辑更新个人信息
          * @param form 表单修改字段
          */
-        async updateProfile(form: UpdateProfileReq) {
-            const res: ApiResult<UserProfile> = await updateUserProfileApi(form)
+        async updateProfile(form: UpdateProfileRequest) {
+            const res: ApiResponse<UserProfile> = await updateUserProfileApi(form)
             // 更新本地缓存的用户信息
             this.profile = res.data
             ElMessage.success('个人信息修改成功')

@@ -1,6 +1,7 @@
 package com.resume.module.resume.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.stereotype.Service;
@@ -16,7 +17,7 @@ public class FileParserService {
      * 解析 PDF 文件，提取文本内容
      */
     public String parsePdf(Path filePath) throws IOException {
-        try (PDDocument document = PDDocument.load(filePath.toFile())) {
+        try (PDDocument document = Loader.loadPDF(filePath.toFile())) {
             PDFTextStripper stripper = new PDFTextStripper();
             stripper.setSortByPosition(true);
             String text = stripper.getText(document);
