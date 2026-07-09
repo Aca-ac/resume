@@ -3,6 +3,10 @@
     name: resume-assistant
   profiles:
     active: dev
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
   datasource:
     url: jdbc:mysql://localhost:3306/resume_assistant?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: resume
@@ -31,6 +35,9 @@ springdoc:
 
 app:
   expose-error-details: false
+  storage:
+    upload-dir: uploads/resumes
+    max-file-size: 10485760
   cors:
     allowed-origins:
       - http://localhost:5173

@@ -5,6 +5,9 @@
       <el-button type="primary" @click="$router.push('/resumes/new')">
         + New Resume
       </el-button>
+      <el-upload :show-file-list="false" :http-request="onImport" accept=".doc,.docx,.pdf,.jpg,.jpeg,.png">
+        <el-button>Import</el-button>
+      </el-upload>
     </div>
     <el-card class="table-card animate-fade-up stagger-1" shadow="never">
       <el-table :data="store.list" v-loading="loading" stripe class="resume-table">
@@ -26,7 +29,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { useResumeStore } from "@/stores/resume";
-import { exportResumePdf } from "@/api/resume";
+import { exportResumePdf, importResume } from "@/api/resume";
 import { ElMessage, ElMessageBox } from "element-plus";
 
 const store = useResumeStore();
@@ -46,6 +49,19 @@ async function onDelete(id: number) {
 
 async function onExport(id: number) {
   await exportResumePdf(id);
+}
+
+async function onImport(options: { file: File }) {
+  try {
+    const result = await importResume(options.file);
+    await store.loadList();
+    ElMessage.success(`Imported: ${result.title}`);
+    if (result.fileType === "JPG" || result.fileType === "JPEG" || result.fileType === "PNG") {
+      ElMessage.info("Image imported, OCR can be triggered from backend API");
+    }
+  } catch {
+    ElMessage.error("Import failed");
+  }
 }
 </script>
 
