@@ -2,12 +2,10 @@
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '用户ID',
     email VARCHAR(255) NOT NULL COMMENT '邮箱（登录账号，唯一）',
     password_hash VARCHAR(255) NOT NULL DEFAULT '' COMMENT '密码哈希（bcrypt加密）',
-    
-ickname VARCHAR(100) NULL DEFAULT NULL COMMENT '昵称',
-    
-ame VARCHAR(50) NULL DEFAULT NULL COMMENT '姓名',
+    nickname VARCHAR(100) NULL DEFAULT NULL COMMENT '昵称',
+    name VARCHAR(50) NULL DEFAULT NULL COMMENT '姓名',
     phone VARCHAR(20) NULL DEFAULT NULL COMMENT '手机号',
-    irth_date DATE NULL DEFAULT NULL COMMENT '出生日期',
+    birth_date DATE NULL DEFAULT NULL COMMENT '出生日期',
     education VARCHAR(50) NULL DEFAULT NULL COMMENT '最高学历（如：本科、硕士、博士）',
     work_years TINYINT UNSIGNED NULL DEFAULT NULL COMMENT '工作年限',
     city VARCHAR(50) NULL DEFAULT NULL COMMENT '所在城市',
@@ -20,21 +18,21 @@ ame VARCHAR(50) NULL DEFAULT NULL COMMENT '姓名',
     KEY idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
 
-CREATE TABLE IF NOT EXISTS esumes (
+CREATE TABLE IF NOT EXISTS resumes (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '简历ID',
     user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
-    	itle VARCHAR(255) NOT NULL DEFAULT '未命名简历' COMMENT '简历标题',
-    ersion INT UNSIGNED NOT NULL DEFAULT 1 COMMENT '版本号',
+    title VARCHAR(255) NOT NULL DEFAULT '未命名简历' COMMENT '简历标题',
+    version INT UNSIGNED NOT NULL DEFAULT 1 COMMENT '版本号',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),
     KEY idx_user_id (user_id),
-    CONSTRAINT k_resumes_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    CONSTRAINT fk_resumes_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='简历主表';
 
-CREATE TABLE IF NOT EXISTS esume_details (
+CREATE TABLE IF NOT EXISTS resume_details (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '明细ID',
-    esume_id BIGINT UNSIGNED NOT NULL COMMENT '简历ID',
+    resume_id BIGINT UNSIGNED NOT NULL COMMENT '简历ID',
     section_type VARCHAR(32) NOT NULL COMMENT '分段类型：EDUCATION/WORK_EXPERIENCE/PROJECT/SKILL/SUMMARY',
     section_name VARCHAR(64) NOT NULL COMMENT '分段标题',
     content TEXT NOT NULL COMMENT '分段内容（JSON格式）',
@@ -42,23 +40,23 @@ CREATE TABLE IF NOT EXISTS esume_details (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),
-    KEY idx_resume_id (esume_id),
-    CONSTRAINT k_details_resume FOREIGN KEY (esume_id) REFERENCES esumes(id) ON DELETE CASCADE
+    KEY idx_resume_id (resume_id),
+    CONSTRAINT fk_details_resume FOREIGN KEY (resume_id) REFERENCES resumes(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='简历明细表';
 
-CREATE TABLE IF NOT EXISTS esume_files (
+CREATE TABLE IF NOT EXISTS resume_files (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '文件ID',
     user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
-    esume_id BIGINT UNSIGNED NULL COMMENT '关联简历ID',
-    ile_type VARCHAR(32) NOT NULL COMMENT '文件类型：JPG/PNG/PDF/DOCX',
-    ile_path VARCHAR(512) NOT NULL COMMENT '文件存储路径',
-    ile_size BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '文件大小（字节）',
+    resume_id BIGINT UNSIGNED NULL COMMENT '关联简历ID',
+    file_type VARCHAR(32) NOT NULL COMMENT '文件类型：JPG/PNG/PDF/DOCX',
+    file_path VARCHAR(512) NOT NULL COMMENT '文件存储路径',
+    file_size BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '文件大小（字节）',
     original_name VARCHAR(255) NOT NULL COMMENT '原始文件名',
     ocr_text TEXT NULL COMMENT 'OCR识别结果',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     PRIMARY KEY (id),
     KEY idx_user_id (user_id),
-    KEY idx_resume_id (esume_id),
-    CONSTRAINT k_files_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT k_files_resume FOREIGN KEY (esume_id) REFERENCES esumes(id) ON DELETE SET NULL
+    KEY idx_resume_id (resume_id),
+    CONSTRAINT fk_files_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_files_resume FOREIGN KEY (resume_id) REFERENCES resumes(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='简历文件表';
