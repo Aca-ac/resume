@@ -1,4 +1,4 @@
-﻿package com.resume.config;
+package com.resume.config;
 
 import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;

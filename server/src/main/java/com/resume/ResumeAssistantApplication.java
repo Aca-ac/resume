@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 @SpringBootApplication
+@MapperScan("com.resume.**.mapper")
 public class ResumeAssistantApplication {
 
     public static void main(String[] args) {

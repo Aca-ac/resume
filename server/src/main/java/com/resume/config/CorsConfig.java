@@ -1,4 +1,4 @@
-﻿package com.resume.config;
+package com.resume.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;

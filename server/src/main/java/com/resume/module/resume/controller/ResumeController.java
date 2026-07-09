@@ -84,7 +84,7 @@ public class ResumeController {
         return Result.success();
     }
 
-    // ========== 文件上传与OCR ==========
+    // ========== 文件上传与内容提取 ==========
 
     @PostMapping(value = "/{resumeId}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Result<ResumeFile> uploadFile(@PathVariable Long resumeId,
@@ -99,9 +99,21 @@ public class ResumeController {
         return Result.success(resumeService.listFiles(userId, resumeId));
     }
 
+    /**
+     * 提取 PDF/DOCX 文件的文本内容（不调用 OCR，直接解析）
+     */
+    @PostMapping("/files/{fileId}/extract")
+    public Result<ResumeFile> extractFileText(@PathVariable Long fileId,
+                                       @RequestAttribute Long userId) {
+        return Result.success(resumeService.extractFileText(fileId, userId));
+    }
+
+    /**
+     * JPG/PNG 图片 OCR 识别（调用通义千问 OCR）
+     */
     @PostMapping("/files/{fileId}/ocr")
     public Result<ResumeFile> ocrImage(@PathVariable Long fileId,
                                        @RequestAttribute Long userId) {
         return Result.success(resumeService.ocrImage(fileId, userId));
-    }
+}
 }

@@ -19,6 +19,7 @@
         <jjwt.version>0.12.5</jjwt.version>
         <springdoc.version>2.5.0</springdoc.version>
         <pdfbox.version>3.0.3</pdfbox.version>
+        <poi.version>5.2.5</poi.version>
     </properties>
     <dependencies>
         <dependency>
@@ -58,6 +59,12 @@
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
             <version>${pdfbox.version}</version>
+        </dependency>
+        <!-- Apache POI for Word (.docx) parsing -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
         </dependency>
         <dependency>
             <groupId>com.baomidou</groupId>
