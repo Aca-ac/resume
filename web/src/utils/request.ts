@@ -1,95 +1,144 @@
-import axios, { type AxiosRequestConfig, type AxiosInstance } from "axios";
-import { useAuthStore } from "@/stores/auth";
-import router from "@/router";
+// src/utils/request.ts
+import axios, { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig, AxiosError } from 'axios'
+import { ElMessage } from 'element-plus'
+import { useAuthStore } from '@/stores/auth'
 
-// ── Underlying axios instance ──────────────────────
-const instance: AxiosInstance = axios.create({
-  baseURL: "/api/v1",
-  timeout: 30000
-});
+// Token刷新锁
+let isRefreshing = false
+let refreshSubscribers: ((token: string) => void)[] = []
 
-let refreshPromise: Promise<void> | null = null;
-
-function refreshAccessToken(): Promise<void> {
-  if (!refreshPromise) {
-    const auth = useAuthStore();
-    refreshPromise = auth
-      .refresh()
-      .then(() => undefined)
-      .finally(() => {
-        refreshPromise = null;
-      });
-  }
-  return refreshPromise;
+// 订阅Token刷新
+function subscribeTokenRefresh(callback: (token: string) => void) {
+    refreshSubscribers.push(callback)
 }
 
-instance.interceptors.request.use((config) => {
-  const auth = useAuthStore();
-  if (auth.accessToken) {
-    config.headers.Authorization = `Bearer ${auth.accessToken}`;
-  }
-  return config;
-});
-
-// The interceptor unwraps { code, data } envelopes:
-//   { code:0, data: T } → T
-//   otherwise           → body as-is
-instance.interceptors.response.use(
-  (response) => {
-    const body = response.data;
-    if (body && typeof body.code === "number" && body.code !== 0) {
-      return Promise.reject(new Error(body.message || "request failed"));
-    }
-    return body?.data !== undefined ? body.data : body;
-  },
-  async (error) => {
-    const auth = useAuthStore();
-    const config = error.config as AxiosRequestConfig & { _retry?: boolean };
-    const url = config?.url ?? "";
-    const isAuthEndpoint =
-      url.includes("/auth/login") ||
-      url.includes("/auth/register") ||
-      url.includes("/auth/refresh");
-    if (
-      error.response?.status === 401 &&
-      auth.refreshToken &&
-      config &&
-      !config._retry &&
-      !isAuthEndpoint
-    ) {
-      config._retry = true;
-      try {
-        await refreshAccessToken();
-        config.headers = config.headers ?? {};
-        config.headers.Authorization = `Bearer ${auth.accessToken}`;
-        return instance(config);
-      } catch {
-        auth.logout();
-        router.push("/login");
-      }
-    }
-    const message =
-      error.response?.data?.message ?? error.message ?? "request failed";
-    return Promise.reject(new Error(message));
-  }
-);
-
-// ── Typed wrapper: reflects that the interceptor ──
-//     already unwraps the envelope so callers get T
-//     directly, not AxiosResponse<T>.
-// ────────────────────────────────────────────────────
-interface UnwrappedRequest {
-  get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T>;
-  post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T>;
-  put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T>;
-  delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T>;
+// 通知所有订阅者Token已刷新
+function onTokenRefreshed(token: string) {
+    refreshSubscribers.forEach(callback => callback(token))
+    refreshSubscribers = []
 }
 
-const request: UnwrappedRequest = {
-  get: (url, config) => instance.get(url, config) as any,
-  post: (url, data, config) => instance.post(url, data, config) as any,
-  put: (url, data, config) => instance.put(url, data, config) as any,
-  delete: (url, config) => instance.delete(url, config) as any,
-};
+class Request {
+    private instance: AxiosInstance
 
-export default request;
+    constructor() {
+        this.instance = axios.create({
+            baseURL: '/api',
+            timeout: 30000,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+
+        this.setupInterceptors()
+    }
+
+    private setupInterceptors() {
+        // 请求拦截器 - 添加Token
+        this.instance.interceptors.request.use(
+            (config: InternalAxiosRequestConfig) => {
+                const authStore = useAuthStore()
+                const token = authStore.accessToken
+
+                if (token && config.headers) {
+                    config.headers.Authorization = `Bearer ${token}`
+                }
+                return config
+            },
+            (error) => {
+                return Promise.reject(error)
+            }
+        )
+
+        // 响应拦截器 - 处理Token过期
+        this.instance.interceptors.response.use(
+            (response) => {
+                return response
+            },
+            async (error: AxiosError) => {
+                const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean }
+
+                // 如果是401错误且不是刷新接口且没有重试过
+                if (error.response?.status === 401 &&
+                    !originalRequest.url?.includes('/auth/refresh') &&
+                    !originalRequest._retry) {
+
+                    // 如果已经在刷新Token，将请求加入队列
+                    if (isRefreshing) {
+                        return new Promise((resolve) => {
+                            subscribeTokenRefresh((token: string) => {
+                                if (originalRequest.headers) {
+                                    originalRequest.headers.Authorization = `Bearer ${token}`
+                                }
+                                resolve(this.instance(originalRequest))
+                            })
+                        })
+                    }
+
+                    originalRequest._retry = true
+                    isRefreshing = true
+
+                    try {
+                        const authStore = useAuthStore()
+                        const newToken = await authStore.refreshToken()
+
+                        if (newToken) {
+                            // 通知所有等待的请求使用新Token
+                            onTokenRefreshed(newToken)
+
+                            // 重试原始请求
+                            if (originalRequest.headers) {
+                                originalRequest.headers.Authorization = `Bearer ${newToken}`
+                            }
+                            return this.instance(originalRequest)
+                        } else {
+                            // 刷新失败，跳转到登录页
+                            authStore.logout()
+                            window.location.href = '/login'
+                            return Promise.reject(error)
+                        }
+                    } catch (refreshError) {
+                        // 刷新失败
+                        const authStore = useAuthStore()
+                        authStore.logout()
+                        window.location.href = '/login'
+                        return Promise.reject(refreshError)
+                    } finally {
+                        isRefreshing = false
+                    }
+                }
+
+                // 业务错误处理
+                if (error.response?.data) {
+                    const data = error.response.data as { message?: string; code?: number }
+                    if (data.message) {
+                        ElMessage.error(data.message)
+                    }
+                } else if (error.message) {
+                    ElMessage.error(error.message)
+                }
+
+                return Promise.reject(error)
+            }
+        )
+    }
+
+    // 封装请求方法
+    public get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
+        return this.instance.get(url, config).then(res => res.data)
+    }
+
+    public post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+        return this.instance.post(url, data, config).then(res => res.data)
+    }
+
+    public put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+        return this.instance.put(url, data, config).then(res => res.data)
+    }
+
+    public delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
+        return this.instance.delete(url, config).then(res => res.data)
+    }
+}
+
+export default new Request()
