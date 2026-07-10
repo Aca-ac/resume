@@ -5,12 +5,14 @@ COPY pom.xml .
 RUN mvn dependency:go-offline -B -q
 COPY src ./src
 RUN find src -name "*.java" -exec sed -i '1s/^\xEF\xBB\xBF//' {} \;
-RUN mvn -s .mvn/settings.xml package -DskipTests -B -q
+RUN mvn package -DskipTests -B -q
 
 # Stage 2: Run
 FROM eclipse-temurin:17-jre
 WORKDIR /app
-RUN groupadd -r app && useradd -r -g app app
+RUN groupadd -r app && useradd -r -g app app && \
+    mkdir -p /app/uploads/resumes && \
+    chown -R app:app /app /app/uploads
 COPY --from=build /app/target/*.jar app.jar
 USER app
 EXPOSE 8080
