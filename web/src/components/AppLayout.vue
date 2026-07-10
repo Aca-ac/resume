@@ -9,18 +9,42 @@
 
       <!-- 导航菜单 -->
       <el-menu
-          router
           :default-active="$route.path"
-          class="nav-menu"
-          background-color="transparent"
-          text-color="#b8c5d6"
-          active-text-color="#fff"
+          :default-openeds="['resume-group']"
+          class="sidebar-menu"
+          router
+          unique-opened
+          background-color="#1e1b40"
+          text-color="#c8d0ff"
+          active-text-color="#ffffff"
       >
-        <el-menu-item v-for="item in navItems" :key="item.path" :index="item.path" class="nav-item">
-          <el-icon><component :is="item.icon" /></el-icon>
-          <span>{{ item.label }}</span>
+        <el-menu-item index="/dashboard">
+          <el-icon><Monitor /></el-icon>
+          <span>仪表板</span>
+        </el-menu-item>
+
+        <!-- 一级菜单：简历管理 二级三个选项 -->
+        <el-sub-menu index="resume-group">
+          <template #title>
+            <el-icon><Document /></el-icon>
+            <span>简历管理</span>
+          </template>
+          <el-menu-item index="/resumes">简历列表</el-menu-item>
+          <el-menu-item index="/resumes/new">简历创建</el-menu-item>
+          <el-menu-item index="/resumes/import">简历导入</el-menu-item>
+        </el-sub-menu>
+
+        <el-menu-item index="/match">
+          <el-icon><Link /></el-icon>
+          <span>职位匹配</span>
+        </el-menu-item>
+
+        <el-menu-item index="/interview/start">
+          <el-icon><ChatDotRound /></el-icon>
+          <span>面试练习</span>
         </el-menu-item>
       </el-menu>
+
     </el-aside>
 
     <el-container class="main-wrap">

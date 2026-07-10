@@ -1,6 +1,9 @@
 <template>
   <div class="editor-page">
-    <h2 class="page-title">{{ isEdit ? "Edit Resume" : "New Resume" }}</h2>
+    <div class="page-header">
+      <el-button @click="$router.push('/resumes')">← 返回列表</el-button>
+      <h2 class="page-title">{{ isEdit ? "Edit Resume" : "New Resume" }}</h2>
+    </div>
     <el-row :gutter="20">
       <el-col :span="12">
         <el-card class="form-card animate-fade-up" shadow="never">
@@ -16,31 +19,28 @@
       <el-col :span="12">
         <transition name="fade-slide">
           <ResumePreview
-            v-if="form.content"
-            :title="form.title || 'Preview'"
-            :content="form.content"
-            class="preview animate-fade-up stagger-1"
+              v-if="form.content"
+              :title="form.title || 'Preview'"
+              :content="form.content"
+              class="preview animate-fade-up stagger-1"
           />
         </transition>
       </el-col>
     </el-row>
   </div>
 </template>
-
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import ResumePreview from "@/components/ResumePreview.vue";
 import { useResumeStore } from "@/stores/resume";
 import { ElMessage } from "element-plus";
-
 const route = useRoute();
 const router = useRouter();
 const store = useResumeStore();
 const saving = ref(false);
 const form = reactive({ title: "", content: "" });
 const isEdit = computed(() => Boolean(route.params.id));
-
 onMounted(async () => {
   if (isEdit.value) {
     await store.loadOne(Number(route.params.id));
@@ -50,7 +50,6 @@ onMounted(async () => {
     }
   }
 });
-
 async function onSave() {
   saving.value = true;
   try {
@@ -62,12 +61,16 @@ async function onSave() {
   }
 }
 </script>
-
 <style scoped>
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
 .form-card {
   border-radius: var(--app-radius);
 }
-
 .preview {
   position: sticky;
   top: 24px;
