@@ -36,6 +36,44 @@ public class JwtTokenUtil {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
+
+    public static Long getIdFromOriginalToken(String originalToken) {
+        if (originalToken == null || originalToken.trim().isEmpty()) {
+            return null;
+        }
+
+        String token = extractToken(originalToken);
+        if (token == null || token.isEmpty()) {
+            return null;
+        }
+
+        if (!validateToken(token)) {
+            return null;
+        }
+
+        try {
+            return getUserIdFromToken(token);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static String extractToken(String input) {
+        if (input == null) {
+            return null;
+        }
+
+        String trimmed = input.trim();
+
+        if (trimmed.startsWith("Bearer ")) {
+            return trimmed.substring(7);
+        } else if (trimmed.startsWith("Bearer")) {
+            return trimmed.substring(6).trim();
+        }
+
+        return trimmed;
+    }
+
     public static String generateToken(Long userId, String email) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + accessExpirationMinutes * 60 * 1000);
