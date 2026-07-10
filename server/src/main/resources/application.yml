@@ -70,8 +70,6 @@ management:
     health:
       show-details: when_authorized
 
-
-
 email:
   smtp:
     host: smtp.qq.com
@@ -86,3 +84,7 @@ email:
           auth: true
           starttls:
             enable: true
+
+dashscope:
+  api-key: sk-ws-H.RXIXPHY.irXZ.MEQCIDqhBEh6QeoNTIT3eLvgRE9OEyh7jq-9nEcA-fMl6_8SAiBt2r2dZ4k1b6o6g-vFXTpzF563FI5SCsMYVHRNfh-OfQ
+

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { authApi } from '@/api/auth'
+import { getUserProfileApi, updateUserProfileApi } from '@/api/user'
 import type { ApiResponse, UserProfile, UpdateProfileRequest } from '@/types/api'
 import { ElMessage } from 'element-plus'
 
@@ -20,20 +20,20 @@ export const useUserStore = defineStore('user', {
     },
     actions: {
         async loadProfile() {
-            const res: ApiResponse<UserProfile> = await authApi.getProfile()
-            if (res.code !== 200 || !res.data) {
-                throw new Error(res.message || '获取个人信息失败')
+            try {
+                const res: ApiResponse<UserProfile> = await getUserProfileApi()
+                this.profile = res.data
+                this.hasLoaded = true
+                return res.data
+            } catch (err) {
+                this.profile = null
+                this.hasLoaded = false
+                throw err
             }
-            this.profile = res.data
-            this.hasLoaded = true
-            return res.data
         },
 
         async updateProfile(form: UpdateProfileRequest) {
-            const res: ApiResponse<UserProfile> = await authApi.updateProfile(form)
-            if (res.code !== 200 || !res.data) {
-                throw new Error(res.message || '更新个人信息失败')
-            }
+            const res: ApiResponse<UserProfile> = await updateUserProfileApi(form)
             this.profile = res.data
             ElMessage.success('个人信息修改成功')
             return res.data
