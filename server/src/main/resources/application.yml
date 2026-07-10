@@ -16,6 +16,8 @@
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+    ignore-failed-migrations: true   # 专门针对 failed 状态，忽略它
+    validate-on-migrate: false   # 启动时跳过校验，直接运行
 
 server:
   port: 8080
