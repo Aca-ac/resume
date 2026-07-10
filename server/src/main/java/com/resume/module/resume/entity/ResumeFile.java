@@ -14,7 +14,9 @@ public class ResumeFile {
     private String fileType;
     private String filePath;
     private Long fileSize;
+    private String fileMd5;
     private String originalName;
     private String ocrText;
+    private String parseStatus;
     private LocalDateTime createdAt;
 }

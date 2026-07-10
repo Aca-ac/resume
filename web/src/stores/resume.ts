@@ -4,6 +4,7 @@ import { createResume, deleteResume, fetchResume, fetchResumes, updateResume } f
 export interface ResumeItem {
   id: number;
   title: string;
+  sourceType?: string;
   content: string;
   updatedAt?: string;
 }
