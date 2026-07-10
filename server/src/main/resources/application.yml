@@ -5,8 +5,8 @@
     active: dev
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
+      max-file-size: 100MB
+      max-request-size: 100MB
   datasource:
     url: jdbc:mysql://localhost:3306/resume_assistant?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: resume
@@ -37,7 +37,8 @@ app:
   expose-error-details: false
   storage:
     upload-dir: uploads/resumes
-    max-file-size: 10485760
+    max-file-size: 104857600
+    chunk-dir: uploads/resumes/chunks
   cors:
     allowed-origins:
       - http://localhost:5173

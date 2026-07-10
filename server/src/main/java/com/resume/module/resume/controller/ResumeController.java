@@ -63,6 +63,21 @@ public class ResumeController {
         return resumeService.importFile(resumeService.resolveUserId(authorization), file);
     }
 
+    @PostMapping("/upload/chunk")
+    public ChunkUploadVO uploadChunk(@RequestParam String uploadId,
+                                   @RequestParam int chunkIndex,
+                                   @RequestParam("file") MultipartFile chunk) throws IOException {
+        return resumeService.uploadChunk(uploadId, chunkIndex, chunk);
+    }
+
+    @PostMapping("/upload/merge")
+    public ImportResultVO mergeChunks(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                      @RequestParam String uploadId,
+                                      @RequestParam String filename,
+                                      @RequestParam int totalChunks) throws IOException {
+        return resumeService.mergeChunks(resumeService.resolveUserId(authorization), uploadId, filename, totalChunks);
+    }
+
     @PostMapping("/{resumeId}/files")
     public ResumeFile uploadFile(@RequestHeader(value = "Authorization", required = false) String authorization,
                                  @PathVariable Long resumeId,
