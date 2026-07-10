@@ -76,8 +76,8 @@ public class AnalyzeUtilBlackBoxTest {
 
         // 校验建议长度
         String suggestions = jsonNode.get("suggestions").asText();
-        assertTrue(suggestions.length() >= 400 && suggestions.length() <= 1200,
-                "建议字数不符合300-600要求，实际字数: " + suggestions.length());
+        assertTrue(suggestions.length() >= 1000 && suggestions.length() <= 3000,
+                "建议字数不符合1000-2000要求，实际字数: " + suggestions.length());
     }
 
     @Test
