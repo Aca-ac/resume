@@ -6,6 +6,7 @@ import com.alibaba.dashscope.aigc.generation.GenerationResult;
 import com.alibaba.dashscope.common.Message;
 import com.alibaba.dashscope.common.Role;
 import com.alibaba.dashscope.utils.Constants;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,6 +23,9 @@ class MaasCallProofTest {
 
     @Test
     void printMaasCallProof() throws Exception {
+        Assumptions.assumeTrue(maasApiKey != null && !maasApiKey.isBlank(),
+                "未配置 dashscope-maas.api-key，跳过真实 AI 调用");
+
         String endpoint = "https://ws-ai0lwpilsl2yp798.cn-beijing.maas.aliyuncs.com/api/v1";
         Constants.baseHttpApiUrl = endpoint;
 

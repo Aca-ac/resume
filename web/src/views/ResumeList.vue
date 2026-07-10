@@ -35,10 +35,12 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import { useResumeStore } from "@/stores/resume";
 import { exportResumePdf, importResume, runResumeOcr } from "@/api/resume";
 import { ElMessage, ElMessageBox } from "element-plus";
 
+const router = useRouter();
 const store = useResumeStore();
 const loading = ref(false);
 const importing = ref(false);
@@ -64,21 +66,29 @@ async function onImport(options: { file: File }) {
   try {
     const result = await importResume(options.file);
     await store.loadList();
-    ElMessage.success(`Imported: ${result.title}`);
     const isImage = ["JPG", "JPEG", "PNG"].includes(result.fileType);
-    if (isImage && result.content.startsWith("【")) {
-      ElMessage.warning("图片 OCR 未成功，可稍后重试识别");
+    const ocrFailed = result.parseStatus === "OCR_FALLBACK" || result.content.startsWith("【");
+
+    if (isImage && ocrFailed && result.fileId) {
+      ElMessage.warning("图片 OCR 未成功，正在重试…");
+      try {
+        const retry = await runResumeOcr(result.fileId);
+        if (retry.ocrText && !retry.ocrText.startsWith("【")) {
+          ElMessage.success("图片 OCR 识别完成");
+          await store.loadList();
+          router.push(`/resumes/${result.resumeId}/edit`);
+          return;
+        }
+      } catch {
+        // fall through to edit page with placeholder content
+      }
+      ElMessage.error("图片 OCR 识别失败，请检查 DASHSCOPE_API_KEY 配置后手动编辑");
     } else if (isImage) {
       ElMessage.success("图片 OCR 识别完成");
+    } else {
+      ElMessage.success(`Imported: ${result.title}`);
     }
-    if (isImage && result.fileId) {
-      try {
-        await runResumeOcr(result.fileId);
-        await store.loadList();
-      } catch {
-        // import 已尝试 OCR，此处静默
-      }
-    }
+    router.push(`/resumes/${result.resumeId}/edit`);
   } catch {
     ElMessage.error("Import failed");
   } finally {
