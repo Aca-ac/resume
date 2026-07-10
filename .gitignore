@@ -15,3 +15,10 @@ server/out/
 .mvn/
 **/.mvn/
 server/server/
+
+# Local Flyway CLI config (dev DB credentials)
+server/flyway.conf
+
+# Local Docker overrides (machine-specific, do not commit)
+docker-compose.override.yml
+Dockerfile.local
