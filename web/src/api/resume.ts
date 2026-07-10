@@ -64,7 +64,7 @@ async function uploadChunks(file: File, uploadId: string) {
     await request.post<ApiResult<unknown>>("/v1/resumes/upload/chunk", form, multipartHeaders());
   }
   return request
-    .post<ApiResult<{ resumeId: number; title: string; content: string; fileId: number; fileType: string }>>(
+    .post<ApiResult<{ resumeId: number; title: string; content: string; fileId: number; fileType: string; parseStatus?: string }>>(
       `/v1/resumes/upload/merge?uploadId=${encodeURIComponent(uploadId)}&filename=${encodeURIComponent(file.name)}&totalChunks=${totalChunks}`
     )
     .then(unwrap);
@@ -79,7 +79,7 @@ export async function importResume(file: File) {
     const form = new FormData();
     form.append("file", file);
     return request
-      .post<ApiResult<{ resumeId: number; title: string; content: string; fileId: number; fileType: string }>>(
+      .post<ApiResult<{ resumeId: number; title: string; content: string; fileId: number; fileType: string; parseStatus?: string }>>(
         "/v1/resumes/import",
         form,
         multipartHeaders()

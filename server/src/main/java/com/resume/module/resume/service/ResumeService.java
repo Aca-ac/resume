@@ -321,6 +321,7 @@ public class ResumeService {
         vo.setContent(content);
         vo.setFileId(record.getId());
         vo.setFileType(fileType);
+        vo.setParseStatus(parseStatus);
         return vo;
     }
 

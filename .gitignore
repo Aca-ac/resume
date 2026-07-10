@@ -15,3 +15,6 @@ server/out/
 .mvn/
 **/.mvn/
 server/server/
+
+# Uploaded resume files (local dev)
+server/uploads/

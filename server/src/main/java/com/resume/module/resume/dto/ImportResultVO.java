@@ -9,4 +9,6 @@ public class ImportResultVO {
     private String content;
     private Long fileId;
     private String fileType;
+    /** PENDING / DONE / FAILED / OCR_FALLBACK */
+    private String parseStatus;
 }
