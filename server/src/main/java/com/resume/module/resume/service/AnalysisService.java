@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.resume.common.BusinessException;
+import com.resume.module.analyze.util.AnalyzeUtil;
 import com.resume.module.resume.dto.AnalysisResult;
 import com.resume.module.resume.entity.AnalysisRecord;
 import com.resume.module.resume.entity.Resume;
@@ -18,10 +19,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -50,16 +47,10 @@ public class AnalysisService {
     private final ResumeMapper resumeMapper;
     private final ResumeDetailMapper resumeDetailMapper;
     private final ObjectMapper objectMapper;
-    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final AnalyzeUtil analyzeUtil;
 
-    @Value("${app.ai.qwen.base-url:https://dashscope.aliyuncs.com/compatible-mode/v1}")
-    private String aiBaseUrl;
-
-    @Value("${app.ai.qwen.api-key:}")
-    private String aiApiKey;
-
-    @Value("${app.ai.qwen.model:qwen-plus}")
-    private String aiModel;
+    @Value("${dashscope-maas.api-key:}")
+    private String maasApiKey;
 
     @Transactional
     public AnalysisResult analyzeResume(Long userId, Long resumeId) {
@@ -74,12 +65,12 @@ public class AnalysisService {
         analysisRecordMapper.insert(record);
 
         try {
-            if (aiApiKey == null || aiApiKey.isBlank()) {
-                throw new BusinessException(500, "AI 服务未配置");
+            if (maasApiKey == null || maasApiKey.isBlank()) {
+                throw new BusinessException(500, "AI 分析服务未配置");
             }
 
             String resumeContent = buildResumeContent(resumeId);
-            String aiResponse = callAi(resumeContent);
+            String aiResponse = analyzeUtil.getAIResponse(resumeContent);
             JsonNode parsed = parseAiJson(aiResponse);
 
             Map<String, Integer> scores = extractScores(parsed);
@@ -185,53 +176,6 @@ public class AnalysisService {
         return builder.toString();
     }
 
-    private String callAi(String resumeContent) throws Exception {
-        String prompt = """
-                你是一名专业的简历评分顾问。请根据以下简历内容，按照 summary(10%%)、education(15%%)、experience(25%%)、skill(25%%)、project(25%%) 五个维度进行 0-100 的整数评分，并给出中文优化建议。
-
-                必须严格返回 JSON，格式如下：
-                {
-                  "scores": {
-                    "summary": 80,
-                    "education": 75,
-                    "experience": 85,
-                    "skill": 90,
-                    "project": 88
-                  },
-                  "suggestions": "分段给出优化建议"
-                }
-
-                简历内容：
-                %s
-                """.formatted(resumeContent);
-
-        Map<String, Object> payload = Map.of(
-                "model", aiModel,
-                "messages", List.of(Map.of("role", "user", "content", prompt)),
-                "temperature", 0.2
-        );
-
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(aiBaseUrl + "/chat/completions"))
-                .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + aiApiKey)
-                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
-                .build();
-
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() != 200) {
-            log.error("AI call failed, status={}, body={}", response.statusCode(), response.body());
-            throw new BusinessException(500, "AI 服务调用失败");
-        }
-
-        JsonNode json = objectMapper.readTree(response.body());
-        String content = json.at("/choices/0/message/content").asText("");
-        if (content.isBlank()) {
-            throw new BusinessException(500, "AI 返回结果为空");
-        }
-        return content;
-    }
-
     JsonNode parseAiJson(String rawContent) throws Exception {
         String jsonText = rawContent.trim();
         Matcher matcher = JSON_BLOCK_PATTERN.matcher(jsonText);
@@ -246,19 +190,33 @@ public class AnalysisService {
         }
 
         JsonNode node = objectMapper.readTree(jsonText);
-        if (!node.has("scores")) {
-            throw new IllegalArgumentException("AI 返回 JSON 缺少 scores 字段");
+        if (!hasScoreFields(node)) {
+            throw new IllegalArgumentException("AI 返回 JSON 缺少评分字段");
         }
         return node;
     }
 
+    private boolean hasScoreFields(JsonNode node) {
+        if (node.has("scores")) {
+            return true;
+        }
+        return node.has("summary_score")
+                && node.has("education_score")
+                && node.has("experience_score")
+                && node.has("skill_score")
+                && node.has("project_score");
+    }
+
     private Map<String, Integer> extractScores(JsonNode parsed) {
-        JsonNode scoresNode = parsed.get("scores");
+        JsonNode scoresNode = parsed.has("scores") ? parsed.get("scores") : parsed;
         Map<String, Integer> scores = new LinkedHashMap<>();
         for (String key : WEIGHTS.keySet()) {
             JsonNode value = scoresNode.get(key);
             if (value == null || !value.isInt()) {
-                throw new IllegalArgumentException("AI 返回 JSON 缺少或格式错误: scores." + key);
+                value = parsed.get(key + "_score");
+            }
+            if (value == null || !value.isInt()) {
+                throw new IllegalArgumentException("AI 返回 JSON 缺少或格式错误: " + key);
             }
             int score = value.asInt();
             if (score < 0 || score > 100) {

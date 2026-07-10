@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.resume.common.BusinessException;
+import com.resume.module.analyze.util.AnalyzeUtil;
 import com.resume.module.resume.dto.AnalysisResult;
 import com.resume.module.resume.entity.AnalysisRecord;
 import com.resume.module.resume.entity.Resume;
@@ -31,20 +32,31 @@ class AnalysisServiceTest {
     private final AnalysisRecordMapper analysisRecordMapper = mock(AnalysisRecordMapper.class);
     private final ResumeMapper resumeMapper = mock(ResumeMapper.class);
     private final ResumeDetailMapper resumeDetailMapper = mock(ResumeDetailMapper.class);
+    private final AnalyzeUtil analyzeUtil = mock(AnalyzeUtil.class);
     private final AnalysisService analysisService = new AnalysisService(
             analysisRecordMapper,
             resumeMapper,
             resumeDetailMapper,
-            objectMapper
+            objectMapper,
+            analyzeUtil
     );
 
     @Test
-    void parseAiJson_shouldParsePlainJson() throws Exception {
+    void parseAiJson_shouldParseNestedScoresJson() throws Exception {
         JsonNode node = analysisService.parseAiJson("""
                 {"scores":{"summary":80,"education":75,"experience":85,"skill":90,"project":88},"suggestions":"建议优化项目描述"}
                 """);
         assertEquals(80, node.get("scores").get("summary").asInt());
         assertEquals("建议优化项目描述", node.get("suggestions").asText());
+    }
+
+    @Test
+    void parseAiJson_shouldParseFlatScoreJson() throws Exception {
+        JsonNode node = analysisService.parseAiJson("""
+                {"summary_score":80,"education_score":75,"experience_score":85,"skill_score":90,"project_score":88,"suggestions":"ok"}
+                """);
+        assertEquals(80, node.get("summary_score").asInt());
+        assertEquals("ok", node.get("suggestions").asText());
     }
 
     @Test
@@ -66,7 +78,7 @@ class AnalysisServiceTest {
                 () -> analysisService.parseAiJson("{\"suggestions\":\"ok\"}")
         );
 
-        assertEquals("AI 返回 JSON 缺少 scores 字段", exception.getMessage());
+        assertEquals("AI 返回 JSON 缺少评分字段", exception.getMessage());
     }
 
     @Test
@@ -135,7 +147,7 @@ class AnalysisServiceTest {
     }
 
     @Test
-    void analyzeResume_shouldMarkRecordFailedWhenAiKeyMissing() {
+    void analyzeResume_shouldMarkRecordFailedWhenMaasKeyMissing() {
         Resume resume = new Resume();
         resume.setId(3L);
         resume.setUserId(1L);
@@ -149,11 +161,11 @@ class AnalysisServiceTest {
         );
 
         assertEquals(500, exception.getCode());
-        assertEquals("AI 服务未配置", exception.getMessage());
+        assertEquals("AI 分析服务未配置", exception.getMessage());
         verify(analysisRecordMapper).insert(any(AnalysisRecord.class));
         verify(analysisRecordMapper).updateById(argThat(record ->
                 record.getStatus().equals(2)
-                        && "AI 服务未配置".equals(record.getErrorMessage())
+                        && "AI 分析服务未配置".equals(record.getErrorMessage())
         ));
     }
 

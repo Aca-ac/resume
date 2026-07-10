@@ -13,7 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 @Component
 public class DashscopeUtil {
-    @Value("${dashscope.api-key:}")
+    @Value("${dashscope-maas.api-key:}")
     private String apiKey;
     static {
         Constants.baseHttpApiUrl = "https://ws-ai0lwpilsl2yp798.cn-beijing.maas.aliyuncs.com/api/v1";

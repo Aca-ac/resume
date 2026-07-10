@@ -1,0 +1,11 @@
+# 复制为 Dockerfile.local（该文件已在 .gitignore 中）
+# 使用前在 server/ 目录执行: mvn package -DskipTests
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+RUN groupadd -r app && useradd -r -g app app && \
+    mkdir -p /app/uploads/resumes && \
+    chown -R app:app /app /app/uploads
+COPY server/target/*.jar app.jar
+USER app
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]

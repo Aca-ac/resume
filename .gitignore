@@ -18,3 +18,10 @@ server/server/
 
 # Uploaded resume files (local dev)
 server/uploads/
+
+# Local Flyway CLI config (dev DB credentials)
+server/flyway.conf
+
+# Local Docker overrides (machine-specific, do not commit)
+docker-compose.override.yml
+Dockerfile.local

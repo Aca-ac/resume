@@ -1,0 +1,15 @@
+# 复制为 docker-compose.override.yml 后按本机情况修改（该文件已在 .gitignore 中）
+services:
+  mysql:
+    ports:
+      - "3307:3306"   # 本机 3306 被占用时改用 3307
+
+  redis:
+    ports:
+      - "6380:6379"   # 本机 6379 被占用时改用 6380
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    command: ["--spring.profiles.active=prod"]
