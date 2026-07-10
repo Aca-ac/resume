@@ -12,9 +12,9 @@ public class Resume {
     private Long id;
     private Long userId;
     private String title;
-    /** MANUAL=新建 IMPORT=导入 */
+    /** MANUAL=在线新建 IMPORT=文件导入 */
     private String sourceType;
-    private String content;
+    /** 每次保存 +1，用于版本追踪 */
     private Integer version;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

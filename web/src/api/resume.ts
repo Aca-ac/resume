@@ -8,6 +8,8 @@ interface ApiResult<T> {
   data: T;
 }
 
+const CHUNK_SIZE = 5 * 1024 * 1024;
+
 function unwrap<T>(res: ApiResult<T>): T {
   if (res.code !== 200) {
     throw new Error(res.message || "请求失败");
@@ -18,12 +20,14 @@ function unwrap<T>(res: ApiResult<T>): T {
 function toResumeItem(r: {
   id: number;
   title: string;
+  sourceType?: string;
   content?: string;
   updatedAt?: string;
 }): ResumeItem {
   return {
     id: r.id,
     title: r.title,
+    sourceType: r.sourceType ?? "MANUAL",
     content: r.content ?? "",
     updatedAt: r.updatedAt
   };
@@ -49,15 +53,41 @@ export function deleteResume(id: number) {
   return request.delete<ApiResult<void>>(`/v1/resumes/${id}`).then(unwrap);
 }
 
-export function importResume(file: File) {
-  const form = new FormData();
-  form.append("file", file);
+async function uploadChunks(file: File, uploadId: string) {
+  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+  for (let i = 0; i < totalChunks; i++) {
+    const chunk = file.slice(i * CHUNK_SIZE, Math.min(file.size, (i + 1) * CHUNK_SIZE));
+    const form = new FormData();
+    form.append("uploadId", uploadId);
+    form.append("chunkIndex", String(i));
+    form.append("file", chunk, file.name);
+    await request.post<ApiResult<unknown>>("/v1/resumes/upload/chunk", form, multipartHeaders());
+  }
   return request
     .post<ApiResult<{ resumeId: number; title: string; content: string; fileId: number; fileType: string }>>(
-      "/v1/resumes/import",
-      form
+      `/v1/resumes/upload/merge?uploadId=${encodeURIComponent(uploadId)}&filename=${encodeURIComponent(file.name)}&totalChunks=${totalChunks}`
     )
     .then(unwrap);
+}
+
+function multipartHeaders() {
+  return { headers: { "Content-Type": "multipart/form-data" } };
+}
+
+export async function importResume(file: File) {
+  if (file.size <= CHUNK_SIZE) {
+    const form = new FormData();
+    form.append("file", file);
+    return request
+      .post<ApiResult<{ resumeId: number; title: string; content: string; fileId: number; fileType: string }>>(
+        "/v1/resumes/import",
+        form,
+        multipartHeaders()
+      )
+      .then(unwrap);
+  }
+  const uploadId = crypto.randomUUID();
+  return uploadChunks(file, uploadId);
 }
 
 export function runResumeOcr(fileId: number) {

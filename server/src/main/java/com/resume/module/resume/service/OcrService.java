@@ -24,20 +24,23 @@ public class OcrService {
     @Value("${app.ai.qwen.api-key:}")
     private String apiKey;
 
+    @Value("${dashscope.api-key:}")
+    private String dashscopeApiKey;
+
     @Value("${app.ai.qwen.base-url:https://dashscope.aliyuncs.com/compatible-mode/v1}")
     private String baseUrl;
 
-    /** 绝不抛异常，永远返回字符串 */
     public String recognize(Path imagePath, String fileType) {
         try {
             if (imagePath == null || !Files.exists(imagePath)) {
                 return FALLBACK;
             }
-            if (apiKey == null || apiKey.isBlank()) {
+            String key = resolveApiKey();
+            if (key.isBlank()) {
                 return FALLBACK + "（未配置 DASHSCOPE_API_KEY）";
             }
             long size = Files.size(imagePath);
-            if (size > 8 * 1024 * 1024) {
+            if (size > 20 * 1024 * 1024) {
                 return FALLBACK + "（图片过大，建议压缩后重试）";
             }
 
@@ -52,14 +55,14 @@ public class OcrService {
                             "role", "user",
                             "content", List.of(
                                     Map.of("type", "image_url", "image_url", Map.of("url", dataUrl)),
-                                    Map.of("type", "text", "text", "识别图片中的简历文字，按原文输出")
+                                    Map.of("type", "text", "text", "识别图片中的简历文字，按原文输出，保持段落结构")
                             )
                     ))
             );
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(apiKey);
+            headers.setBearerAuth(key);
 
             @SuppressWarnings("unchecked")
             Map<String, Object> resp = restClient.post()
@@ -78,6 +81,13 @@ public class OcrService {
             log.warn("OCR fallback: {}", e.getMessage());
             return FALLBACK;
         }
+    }
+
+    private String resolveApiKey() {
+        if (apiKey != null && !apiKey.isBlank()) {
+            return apiKey;
+        }
+        return dashscopeApiKey == null ? "" : dashscopeApiKey;
     }
 
     private String parseContent(Map<String, Object> resp) {

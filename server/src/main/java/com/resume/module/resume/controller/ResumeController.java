@@ -4,7 +4,7 @@ import com.resume.common.Result;
 import com.resume.module.resume.dto.ChunkUploadVO;
 import com.resume.module.resume.dto.ImportResultVO;
 import com.resume.module.resume.dto.ResumeSaveRequest;
-import com.resume.module.resume.entity.Resume;
+import com.resume.module.resume.dto.ResumeVO;
 import com.resume.module.resume.entity.ResumeDetail;
 import com.resume.module.resume.entity.ResumeFile;
 import com.resume.module.resume.service.ResumeService;
@@ -27,12 +27,10 @@ public class ResumeController {
 
     private final ResumeService resumeService;
 
-    // ========== 简历主表 ==========
-
     @PostMapping
-    public Result<Resume> createResume(@RequestAttribute Long userId,
-                                       @RequestBody(required = false) ResumeSaveRequest body,
-                                       @RequestParam(required = false) String title) {
+    public Result<ResumeVO> createResume(@RequestAttribute Long userId,
+                                         @RequestBody(required = false) ResumeSaveRequest body,
+                                         @RequestParam(required = false) String title) {
         if (body != null && (body.getTitle() != null || body.getContent() != null)) {
             return Result.success(resumeService.createResume(userId, body));
         }
@@ -40,28 +38,27 @@ public class ResumeController {
     }
 
     @GetMapping("/{id}")
-    public Result<Resume> getResume(@PathVariable Long id, @RequestAttribute Long userId) {
-        return Result.success(resumeService.getResume(id, userId));
+    public Result<ResumeVO> getResume(@PathVariable Long id, @RequestAttribute Long userId) {
+        return Result.success(resumeService.getResumeVo(id, userId));
     }
 
     @GetMapping
-    public Result<List<Resume>> listResumes(@RequestAttribute Long userId) {
+    public Result<List<ResumeVO>> listResumes(@RequestAttribute Long userId) {
         return Result.success(resumeService.listResumes(userId));
     }
 
     @PutMapping("/{id}")
-    public Result<Resume> updateResume(@PathVariable Long id,
-                                       @RequestAttribute Long userId,
-                                       @RequestBody(required = false) ResumeSaveRequest body,
-                                       @RequestParam(required = false) String title) {
+    public Result<ResumeVO> updateResume(@PathVariable Long id,
+                                         @RequestAttribute Long userId,
+                                         @RequestBody(required = false) ResumeSaveRequest body,
+                                         @RequestParam(required = false) String title) {
         if (body != null && (body.getTitle() != null || body.getContent() != null)) {
             return Result.success(resumeService.updateResume(id, userId, body));
         }
         if (title != null) {
             resumeService.updateResumeTitle(id, userId, title);
-            return Result.success(resumeService.getResume(id, userId));
         }
-        return Result.success(resumeService.getResume(id, userId));
+        return Result.success(resumeService.getResumeVo(id, userId));
     }
 
     @DeleteMapping("/{id}")
@@ -69,8 +66,6 @@ public class ResumeController {
         resumeService.deleteResume(id, userId);
         return Result.success();
     }
-
-    // ========== 简历明细分段 ==========
 
     @GetMapping("/{resumeId}/details")
     public Result<List<ResumeDetail>> getDetails(@PathVariable Long resumeId,
@@ -103,8 +98,6 @@ public class ResumeController {
         return Result.success();
     }
 
-    // ========== 导入 / 分片 / 导出 ==========
-
     @PostMapping("/import")
     public Result<ImportResultVO> importResume(@RequestAttribute Long userId,
                                                @RequestParam("file") MultipartFile file) throws IOException {
@@ -113,16 +106,16 @@ public class ResumeController {
 
     @PostMapping("/upload/chunk")
     public Result<ChunkUploadVO> uploadChunk(@RequestParam String uploadId,
-                                               @RequestParam int chunkIndex,
-                                               @RequestParam("file") MultipartFile chunk) throws IOException {
+                                             @RequestParam int chunkIndex,
+                                             @RequestParam("file") MultipartFile chunk) throws IOException {
         return Result.success(resumeService.uploadChunk(uploadId, chunkIndex, chunk));
     }
 
     @PostMapping("/upload/merge")
     public Result<ImportResultVO> mergeChunks(@RequestAttribute Long userId,
-                                                @RequestParam String uploadId,
-                                                @RequestParam String filename,
-                                                @RequestParam int totalChunks) throws IOException {
+                                              @RequestParam String uploadId,
+                                              @RequestParam String filename,
+                                              @RequestParam int totalChunks) throws IOException {
         return Result.success(resumeService.mergeChunks(userId, uploadId, filename, totalChunks));
     }
 
@@ -145,8 +138,6 @@ public class ResumeController {
         return download(resumeService.exportText(userId, id), "resume-" + id + ".txt", MediaType.TEXT_PLAIN);
     }
 
-    // ========== 文件上传与内容提取 ==========
-
     @PostMapping(value = "/{resumeId}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Result<ResumeFile> uploadFile(@PathVariable Long resumeId,
                                          @RequestAttribute Long userId,
@@ -156,13 +147,13 @@ public class ResumeController {
 
     @GetMapping("/files")
     public Result<List<ResumeFile>> listFiles(@RequestAttribute Long userId,
-                                              @RequestParam(required = false) Long resumeId) {
+                                             @RequestParam(required = false) Long resumeId) {
         return Result.success(resumeService.listFiles(userId, resumeId));
     }
 
     @PostMapping("/files/{fileId}/extract")
     public Result<ResumeFile> extractFileText(@PathVariable Long fileId,
-                                              @RequestAttribute Long userId) {
+                                             @RequestAttribute Long userId) {
         return Result.success(resumeService.extractFileText(fileId, userId));
     }
 

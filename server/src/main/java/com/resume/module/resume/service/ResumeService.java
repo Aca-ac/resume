@@ -6,6 +6,7 @@ import com.resume.config.StorageProperties;
 import com.resume.module.resume.dto.ChunkUploadVO;
 import com.resume.module.resume.dto.ImportResultVO;
 import com.resume.module.resume.dto.ResumeSaveRequest;
+import com.resume.module.resume.dto.ResumeVO;
 import com.resume.module.resume.entity.Resume;
 import com.resume.module.resume.entity.ResumeDetail;
 import com.resume.module.resume.entity.ResumeFile;
@@ -22,6 +23,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,9 +32,10 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ResumeService {
 
+    private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final String SOURCE_MANUAL = "MANUAL";
     private static final String SOURCE_IMPORT = "IMPORT";
-    private static final int DETAIL_MAX = 16_000;
+    private static final String SECTION_SUMMARY = "SUMMARY";
 
     private final ResumeMapper resumeMapper;
     private final ResumeDetailMapper resumeDetailMapper;
@@ -44,29 +47,34 @@ public class ResumeService {
     private final ChunkUploadService chunkUploadService;
     private final StorageProperties storageProperties;
 
-    // ========== 简历主表 CRUD ==========
+    // ========== 简历 CRUD（正文存 resume_details.SUMMARY）==========
 
-    public Resume createResume(Long userId, String title) {
+    public ResumeVO createResume(Long userId, String title) {
         Resume resume = new Resume();
         resume.setUserId(userId);
         resume.setTitle(defaultTitle(title));
         resume.setSourceType(SOURCE_MANUAL);
-        resume.setContent("");
         resume.setVersion(1);
         resumeMapper.insert(resume);
-        return resume;
+        saveSummaryContent(resume.getId(), "");
+        return toVO(resume, "");
     }
 
-    public Resume createResume(Long userId, ResumeSaveRequest req) {
+    public ResumeVO createResume(Long userId, ResumeSaveRequest req) {
         Resume resume = new Resume();
         resume.setUserId(userId);
         resume.setTitle(defaultTitle(req.getTitle()));
         resume.setSourceType(SOURCE_MANUAL);
-        resume.setContent(defaultContent(req.getContent()));
         resume.setVersion(1);
         resumeMapper.insert(resume);
-        upsertSummaryDetail(resume.getId(), resume.getContent());
-        return resume;
+        String content = defaultContent(req.getContent());
+        saveSummaryContent(resume.getId(), content);
+        return toVO(resume, content);
+    }
+
+    public ResumeVO getResumeVo(Long id, Long userId) {
+        Resume resume = getResume(id, userId);
+        return toVO(resume, loadSummaryContent(id));
     }
 
     public Resume getResume(Long id, Long userId) {
@@ -77,10 +85,13 @@ public class ResumeService {
         return resume;
     }
 
-    public List<Resume> listResumes(Long userId) {
-        return resumeMapper.selectList(new LambdaQueryWrapper<Resume>()
+    public List<ResumeVO> listResumes(Long userId) {
+        List<Resume> rows = resumeMapper.selectList(new LambdaQueryWrapper<Resume>()
                 .eq(Resume::getUserId, userId)
                 .orderByDesc(Resume::getUpdatedAt));
+        return rows.stream()
+                .map(r -> toVO(r, previewSummary(r.getId())))
+                .toList();
     }
 
     public void updateResumeTitle(Long id, Long userId, String title) {
@@ -89,29 +100,33 @@ public class ResumeService {
         resumeMapper.updateById(resume);
     }
 
-    public Resume updateResume(Long id, Long userId, ResumeSaveRequest req) {
+    public ResumeVO updateResume(Long id, Long userId, ResumeSaveRequest req) {
         Resume resume = getResume(id, userId);
         if (req.getTitle() != null) {
             resume.setTitle(req.getTitle());
         }
         if (req.getContent() != null) {
-            resume.setContent(req.getContent());
-            upsertSummaryDetail(id, req.getContent());
+            saveSummaryContent(id, req.getContent());
         }
         resume.setVersion(resume.getVersion() == null ? 1 : resume.getVersion() + 1);
         resumeMapper.updateById(resume);
-        return resume;
+        return toVO(resume, loadSummaryContent(id));
     }
 
     @Transactional
     public void deleteResume(Long id, Long userId) {
         getResume(id, userId);
+        List<ResumeFile> files = resumeFileMapper.selectList(
+                new LambdaQueryWrapper<ResumeFile>().eq(ResumeFile::getResumeId, id));
+        for (ResumeFile file : files) {
+            deletePhysicalFile(file.getFilePath());
+        }
         resumeDetailMapper.delete(new LambdaQueryWrapper<ResumeDetail>().eq(ResumeDetail::getResumeId, id));
         resumeFileMapper.delete(new LambdaQueryWrapper<ResumeFile>().eq(ResumeFile::getResumeId, id));
         resumeMapper.deleteById(id);
     }
 
-    // ========== 简历明细分段 CRUD ==========
+    // ========== 明细分段 CRUD ==========
 
     public List<ResumeDetail> getDetails(Long resumeId, Long userId) {
         getResume(resumeId, userId);
@@ -161,7 +176,7 @@ public class ResumeService {
         resumeDetailMapper.deleteById(detailId);
     }
 
-    // ========== 导入 / 分片上传 / 导出 ==========
+    // ========== 导入 / 分片 / 导出 ==========
 
     public ImportResultVO importFile(Long userId, MultipartFile file) throws IOException {
         validateFile(file);
@@ -194,6 +209,7 @@ public class ResumeService {
     }
 
     public ChunkUploadVO uploadChunk(String uploadId, int chunkIndex, MultipartFile chunk) throws IOException {
+        validateSize(chunk.getSize());
         chunkUploadService.saveChunk(uploadId, chunkIndex, chunk);
         ChunkUploadVO vo = new ChunkUploadVO();
         vo.setUploadId(uploadId);
@@ -204,20 +220,20 @@ public class ResumeService {
 
     public byte[] exportPdf(Long userId, Long id) throws IOException {
         Resume resume = getResume(id, userId);
-        return exportService.exportPdf(resume.getTitle(), safeContent(resume));
+        return exportService.exportPdf(resume.getTitle(), loadSummaryContent(id));
     }
 
     public byte[] exportDocx(Long userId, Long id) throws IOException {
         Resume resume = getResume(id, userId);
-        return exportService.exportDocx(resume.getTitle(), safeContent(resume));
+        return exportService.exportDocx(resume.getTitle(), loadSummaryContent(id));
     }
 
     public byte[] exportText(Long userId, Long id) {
         Resume resume = getResume(id, userId);
-        return exportService.exportText(resume.getTitle(), safeContent(resume));
+        return exportService.exportText(resume.getTitle(), loadSummaryContent(id));
     }
 
-    // ========== 文件上传与内容提取 ==========
+    // ========== 文件上传与 OCR ==========
 
     public ResumeFile uploadFile(Long userId, Long resumeId, MultipartFile file) {
         getResume(resumeId, userId);
@@ -242,7 +258,7 @@ public class ResumeService {
             resumeFile.setOcrText(text);
             resumeFile.setParseStatus(text.isBlank() ? "FAILED" : "DONE");
             resumeFileMapper.updateById(resumeFile);
-            syncResumeContent(resumeFile, text);
+            syncSummaryFromFile(resumeFile, text);
             return resumeFile;
         } catch (IOException e) {
             log.error("File text extraction failed, fileId={}", fileId, e);
@@ -252,14 +268,14 @@ public class ResumeService {
 
     public ResumeFile ocrImage(Long fileId, Long userId) {
         ResumeFile resumeFile = requireOwnedFile(userId, fileId);
-        if (!List.of("JPG", "JPEG", "PNG").contains(resumeFile.getFileType().toUpperCase())) {
+        if (!isImage(resumeFile.getFileType())) {
             throw new BusinessException(400, "仅支持 JPG/PNG 图片进行 OCR 识别");
         }
         String text = ocrService.recognize(resolveFilePath(resumeFile.getFilePath()), resumeFile.getFileType());
         resumeFile.setOcrText(text);
         resumeFile.setParseStatus(text.startsWith("【") ? "OCR_FALLBACK" : "DONE");
         resumeFileMapper.updateById(resumeFile);
-        syncResumeContent(resumeFile, text);
+        syncSummaryFromFile(resumeFile, text);
         return resumeFile;
     }
 
@@ -277,33 +293,38 @@ public class ResumeService {
 
     private ImportResultVO buildImportResult(Long userId, FileStorageService.StoredFile stored,
                                              String fileType) throws IOException {
-        String text = parseText(stored, fileType);
+        String text;
+        String parseStatus;
+
+        if (isImage(fileType)) {
+            text = ocrService.recognize(stored.path(), fileType);
+            parseStatus = text.startsWith("【") ? "OCR_FALLBACK" : "DONE";
+        } else {
+            text = parseText(stored, fileType);
+            parseStatus = text.isBlank() ? "FAILED" : "DONE";
+        }
 
         Resume resume = new Resume();
         resume.setUserId(userId);
         resume.setTitle(stripExt(stored.originalName()));
         resume.setSourceType(SOURCE_IMPORT);
-        resume.setContent(text.isBlank() ? "（导入内容为空，图片请执行 OCR）" : text);
         resume.setVersion(1);
         resumeMapper.insert(resume);
 
-        String status = isImage(fileType) ? "PENDING" : (text.isBlank() ? "FAILED" : "DONE");
-        ResumeFile record = saveFileRecord(userId, resume.getId(), stored, fileType, text, status);
-        upsertSummaryDetail(resume.getId(), resume.getContent());
+        String content = text.isBlank() ? "（导入内容为空，请手动编辑或重新 OCR）" : text;
+        saveSummaryContent(resume.getId(), content);
+        ResumeFile record = saveFileRecord(userId, resume.getId(), stored, fileType, text, parseStatus);
 
         ImportResultVO vo = new ImportResultVO();
         vo.setResumeId(resume.getId());
         vo.setTitle(resume.getTitle());
-        vo.setContent(resume.getContent());
+        vo.setContent(content);
         vo.setFileId(record.getId());
         vo.setFileType(fileType);
         return vo;
     }
 
     private String parseText(FileStorageService.StoredFile stored, String fileType) throws IOException {
-        if (isImage(fileType)) {
-            return "";
-        }
         try {
             return fileParseService.parse(stored.path(), fileType);
         } catch (Exception e) {
@@ -323,41 +344,51 @@ public class ResumeService {
         return Optional.ofNullable(hit);
     }
 
-    private void upsertSummaryDetail(Long resumeId, String content) {
-        if (content == null) {
-            return;
+    private String loadSummaryContent(Long resumeId) {
+        ResumeDetail detail = resumeDetailMapper.selectOne(new LambdaQueryWrapper<ResumeDetail>()
+                .eq(ResumeDetail::getResumeId, resumeId)
+                .eq(ResumeDetail::getSectionType, SECTION_SUMMARY)
+                .last("LIMIT 1"));
+        return detail == null || detail.getContent() == null ? "" : detail.getContent();
+    }
+
+    private String previewSummary(Long resumeId) {
+        String full = loadSummaryContent(resumeId);
+        if (full.length() <= 200) {
+            return full;
         }
-        String safe = content.length() > DETAIL_MAX ? content.substring(0, DETAIL_MAX) : content;
+        return full.substring(0, 200) + "...";
+    }
+
+    private void saveSummaryContent(Long resumeId, String content) {
         ResumeDetail existing = resumeDetailMapper.selectOne(new LambdaQueryWrapper<ResumeDetail>()
                 .eq(ResumeDetail::getResumeId, resumeId)
-                .eq(ResumeDetail::getSectionType, "SUMMARY")
+                .eq(ResumeDetail::getSectionType, SECTION_SUMMARY)
                 .last("LIMIT 1"));
         if (existing == null) {
             ResumeDetail detail = new ResumeDetail();
             detail.setResumeId(resumeId);
-            detail.setSectionType("SUMMARY");
+            detail.setSectionType(SECTION_SUMMARY);
             detail.setSectionName("正文");
-            detail.setContent(safe);
+            detail.setContent(content == null ? "" : content);
             detail.setSortOrder(0);
             resumeDetailMapper.insert(detail);
         } else {
-            existing.setContent(safe);
+            existing.setContent(content == null ? "" : content);
             resumeDetailMapper.updateById(existing);
         }
     }
 
-    private void syncResumeContent(ResumeFile file, String text) {
+    private void syncSummaryFromFile(ResumeFile file, String text) {
         if (file.getResumeId() == null || text == null || text.isBlank()) {
             return;
         }
+        saveSummaryContent(file.getResumeId(), text);
         Resume resume = resumeMapper.selectById(file.getResumeId());
-        if (resume == null) {
-            return;
+        if (resume != null) {
+            resume.setVersion(resume.getVersion() == null ? 1 : resume.getVersion() + 1);
+            resumeMapper.updateById(resume);
         }
-        resume.setContent(text);
-        resume.setVersion(resume.getVersion() == null ? 1 : resume.getVersion() + 1);
-        resumeMapper.updateById(resume);
-        upsertSummaryDetail(resume.getId(), text);
     }
 
     private ResumeFile requireOwnedFile(Long userId, Long fileId) {
@@ -384,6 +415,14 @@ public class ResumeService {
         return record;
     }
 
+    private void deletePhysicalFile(String filePath) {
+        try {
+            Files.deleteIfExists(resolveFilePath(filePath));
+        } catch (Exception e) {
+            log.warn("删除文件失败: {}", filePath);
+        }
+    }
+
     private Path resolveFilePath(String filePath) {
         Path path = Paths.get(filePath);
         if (Files.exists(path)) {
@@ -405,8 +444,14 @@ public class ResumeService {
         }
     }
 
-    private String safeContent(Resume resume) {
-        return resume.getContent() == null ? "" : resume.getContent();
+    private ResumeVO toVO(Resume resume, String content) {
+        ResumeVO vo = new ResumeVO();
+        vo.setId(resume.getId());
+        vo.setTitle(resume.getTitle());
+        vo.setSourceType(resume.getSourceType() == null ? SOURCE_MANUAL : resume.getSourceType());
+        vo.setContent(content);
+        vo.setUpdatedAt(resume.getUpdatedAt() == null ? null : resume.getUpdatedAt().format(FMT));
+        return vo;
     }
 
     private String defaultTitle(String title) {
