@@ -16,6 +16,9 @@ server/out/
 **/.mvn/
 server/server/
 
+# Uploaded resume files (local dev)
+server/uploads/
+
 # Local Flyway CLI config (dev DB credentials)
 server/flyway.conf
 
