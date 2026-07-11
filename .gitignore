@@ -1,4 +1,5 @@
 node_modules/
+web/node_modules/
 dist/
 target/
 .idea/
@@ -7,3 +8,23 @@ target/
 .env
 server/.m2/
 server/out/
+
+# Temp files
+*.py
+*.err
+.mvn/
+**/.mvn/
+server/server/
+
+# Uploaded resume files (local dev)
+server/uploads/
+
+# Local Flyway CLI config (dev DB credentials)
+server/flyway.conf
+
+# Local Docker overrides (machine-specific, do not commit)
+docker-compose.override.yml
+Dockerfile.local
+
+# 忽略 test 目录下的 module 文件
+src/test/java/com/resume/module/

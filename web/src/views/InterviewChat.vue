@@ -1,44 +1,49 @@
 <template>
   <div class="chat-page">
-    <h2 class="page-title">Interview Chat</h2>
-    <div class="messages-panel">
-      <transition-group name="msg" tag="div" class="messages">
-        <div
-          v-for="(m, idx) in interview.messages"
-          :key="idx"
-          class="msg-bubble"
-          :class="m.role"
-        >
-          <div class="msg-avatar">{{ m.role === 'user' ? 'You' : 'AI' }}</div>
+    <section class="hero-section">
+      <h1 class="hero-title">🎤 模拟面试</h1>
+      <p class="hero-subtitle">根据你的简历与目标职位进行多轮问答，结束后可生成面试报告。</p>
+    </section>
+
+    <section class="content-section">
+      <div class="messages-panel">
+        <div v-for="(m, idx) in interview.messages" :key="idx" class="msg-bubble" :class="m.role">
+          <div class="msg-avatar">{{ m.role === "user" ? "我" : "AI" }}</div>
           <div class="msg-body">
-            <span class="msg-role">{{ m.role === 'user' ? 'You' : 'Interviewer' }}</span>
+            <span class="msg-role">{{ m.role === "user" ? "我" : "面试官" }}</span>
             <p>{{ m.content }}</p>
           </div>
         </div>
-        <div v-if="loading" key="typing" class="msg-bubble assistant typing">
+        <div v-if="loading" class="msg-bubble assistant">
           <div class="msg-avatar">AI</div>
-          <div class="msg-body">
-            <span class="typing-dots"><span></span><span></span><span></span></span>
-          </div>
+          <div class="msg-body"><span class="msg-role">面试官</span><p>思考中…</p></div>
         </div>
-      </transition-group>
-    </div>
-    <el-input v-model="answer" type="textarea" :rows="4" placeholder="Type your answer..." class="input-area" />
-    <div class="actions">
-      <el-button type="primary" :loading="loading" @click="onSend">Send</el-button>
-      <el-button @click="$router.push(`/interview/${sessionId}/report`)">Finish & Report</el-button>
-    </div>
+      </div>
+
+      <el-input
+        v-model="answer"
+        type="textarea"
+        :rows="4"
+        placeholder="输入你的回答…"
+        class="input-area"
+      />
+      <div class="actions">
+        <el-button type="primary" :loading="loading" @click="onSend">发送回答</el-button>
+        <el-button @click="goReport">结束并查看报告</el-button>
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useInterviewStore } from "@/stores/interview";
 import { fetchMessages } from "@/api/interview";
 import { ElMessage } from "element-plus";
 
 const route = useRoute();
+const router = useRouter();
 const interview = useInterviewStore();
 const sessionId = computed(() => Number(route.params.sessionId));
 const answer = ref("");
@@ -46,7 +51,11 @@ const loading = ref(false);
 
 onMounted(async () => {
   interview.sessionId = sessionId.value;
-  interview.messages = await fetchMessages(sessionId.value);
+  try {
+    interview.messages = await fetchMessages(sessionId.value);
+  } catch (e: any) {
+    ElMessage.error(e.message || "加载对话失败");
+  }
 });
 
 async function onSend() {
@@ -56,39 +65,67 @@ async function onSend() {
     await interview.answer(answer.value);
     answer.value = "";
   } catch (e: any) {
-    ElMessage.error(e.message || "Send failed");
+    ElMessage.error(e.message || "发送失败");
   } finally {
     loading.value = false;
   }
+}
+
+function goReport() {
+  router.push(`/interview/${sessionId.value}/report`);
 }
 </script>
 
 <style scoped>
 .chat-page {
-  max-width: 800px;
+  width: 100%;
+  min-height: 100vh;
+  padding: 24px 32px;
+  box-sizing: border-box;
+  background: linear-gradient(135deg, #cde2e8 0%, #bcddbe 100%);
+}
+
+.hero-section {
+  text-align: center;
+  margin-bottom: 24px;
+  padding: 24px 32px;
+  background: #fbfccd;
+  border-radius: 16px;
+}
+
+.hero-title {
+  margin: 0 0 8px;
+  font-size: 28px;
+  color: #64a386;
+}
+
+.hero-subtitle {
+  margin: 0;
+  color: #4f6b5d;
+}
+
+.content-section {
+  max-width: 860px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
 }
 
 .messages-panel {
-  background: #fff;
-  border-radius: var(--app-radius);
-  box-shadow: var(--app-shadow);
-  padding: 20px;
   min-height: 320px;
   max-height: 480px;
   overflow-y: auto;
   margin-bottom: 16px;
-}
-
-.messages {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .msg-bubble {
   display: flex;
   gap: 12px;
-  max-width: 85%;
+  max-width: 88%;
 }
 
 .msg-bubble.user {
@@ -97,83 +134,49 @@ async function onSend() {
 }
 
 .msg-avatar {
-  flex-shrink: 0;
   width: 36px;
   height: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-weight: 600;
   color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+  background: #64a386;
 }
 
 .user .msg-avatar {
-  background: linear-gradient(135deg, #409eff, #337ecc);
-}
-
-.assistant .msg-avatar {
-  background: linear-gradient(135deg, #67c23a, #529b2e);
+  background: #409eff;
 }
 
 .msg-body {
   background: #f5f7fa;
-  padding: 12px 16px;
   border-radius: 12px;
-  border-top-left-radius: 4px;
+  padding: 10px 14px;
 }
 
 .user .msg-body {
-  background: linear-gradient(135deg, rgba(64, 158, 255, 0.12), rgba(51, 126, 204, 0.08));
-  border-top-left-radius: 12px;
-  border-top-right-radius: 4px;
+  background: #ecf5ff;
 }
 
 .msg-role {
+  display: block;
   font-size: 12px;
   color: #909399;
-  font-weight: 600;
+  margin-bottom: 4px;
 }
 
 .msg-body p {
-  margin: 6px 0 0;
+  margin: 0;
+  white-space: pre-wrap;
   line-height: 1.6;
-}
-
-.msg-enter-active {
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.msg-enter-from {
-  opacity: 0;
-  transform: translateY(16px) scale(0.96);
-}
-
-.typing-dots span {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #67c23a;
-  margin: 0 3px;
-  animation: typingBounce 1.2s ease-in-out infinite;
-}
-
-.typing-dots span:nth-child(2) { animation-delay: 0.15s; }
-.typing-dots span:nth-child(3) { animation-delay: 0.3s; }
-
-@keyframes typingBounce {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-  30% { transform: translateY(-6px); opacity: 1; }
-}
-
-.input-area {
-  margin-bottom: 12px;
 }
 
 .actions {
   display: flex;
-  gap: 8px;
+  gap: 12px;
+  margin-top: 12px;
 }
 </style>

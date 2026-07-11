@@ -3,6 +3,10 @@
     name: resume-assistant
   profiles:
     active: dev
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
   datasource:
     url: jdbc:mysql://localhost:3306/resume_assistant?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: resume
@@ -12,6 +16,8 @@
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+    ignore-failed-migrations: true   # 专门针对 failed 状态，忽略它
+    validate-on-migrate: false   # 启动时跳过校验，直接运行
 
 server:
   port: 8080
@@ -31,6 +37,10 @@ springdoc:
 
 app:
   expose-error-details: false
+  storage:
+    upload-dir: uploads/resumes
+    max-file-size: 104857600
+    chunk-dir: uploads/resumes/chunks
   cors:
     allowed-origins:
       - http://localhost:5173
@@ -52,6 +62,8 @@ app:
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
       api-key: ${DASHSCOPE_API_KEY:${QWEN_API_KEY:}}
       model: qwen-plus
+      ocr-model: ${QWEN_OCR_MODEL:qwen-vl-ocr}
+      workspace-id: ${QWEN_WORKSPACE_ID:}
 
 management:
   endpoints:
@@ -61,8 +73,6 @@ management:
   endpoint:
     health:
       show-details: when_authorized
-
-
 
 email:
   smtp:
@@ -78,3 +88,5 @@ email:
           auth: true
           starttls:
             enable: true
+
+
