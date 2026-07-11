@@ -113,7 +113,7 @@ const codeCountdown = ref(0)
 let countdownTimer: number | null = null
 
 // 左侧图片 - 请替换为你的实际图片路径
-const registerImage = new URL('@/assets/resumepicture/picture11.jpg', import.meta.url).href
+const registerImage = new URL('@/assets/resumepicture/picture011.jpg', import.meta.url).href
 
 const registerForm = ref({
   email: '',
@@ -445,3 +445,4 @@ const getBubbleStyle = (index: number) => {
   }
 }
 </style>
+

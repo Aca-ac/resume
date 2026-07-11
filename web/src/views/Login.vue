@@ -82,7 +82,7 @@ const authStore = useAuthStore()
 const loginFormRef = ref<InstanceType<typeof ElForm>>()
 const loading = ref(false)
 
-const loginImage = new URL('@/assets/resumepicture/picture10.jpg', import.meta.url).href
+const loginImage = new URL('@/assets/resumepicture/picture010.jpg', import.meta.url).href
 
 const loginForm = ref({
   email: '',
@@ -350,3 +350,6 @@ const getBubbleStyle = (index: number) => {
   }
 }
 </style>
+
+
+

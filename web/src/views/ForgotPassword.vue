@@ -63,7 +63,7 @@ const forgotFormRef = ref<InstanceType<typeof ElForm>>()
 const loading = ref(false)
 
 // 左侧图片 - 请替换为你的实际图片路径
-const forgotImage = new URL('@/assets/resumepicture/picture10.jpg', import.meta.url).href
+const forgotImage = new URL('@/assets/resumepicture/picture010.jpg', import.meta.url).href
 
 const forgotForm = ref({
   email: ''
@@ -224,3 +224,4 @@ const handleSubmit = async () => {
   }
 }
 </style>
+

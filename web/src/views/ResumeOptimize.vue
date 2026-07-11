@@ -1,59 +1,5 @@
 <template>
   <div class="optimize-page">
-    <!-- 顶部导航栏 -->
-    <header class="top-header">
-      <div class="header-left"></div>
-
-      <div class="header-center">
-        <div class="dropdown-wrapper">
-          <div class="transparent-btn" @click="toggleResumeDropdown">
-            简历管理
-            <el-icon :size="12" class="dropdown-arrow" :class="{ rotated: resumeDropdownOpen }">
-              <ArrowDown />
-            </el-icon>
-          </div>
-          <div v-show="resumeDropdownOpen" class="dropdown-menu" @mouseleave="closeResumeDropdown">
-            <div class="dropdown-item" @click="goResumes">
-              <el-icon><Document /></el-icon>
-              <span>我的简历</span>
-            </div>
-            <div class="dropdown-item" @click="goResumeCreate">
-              <el-icon><Plus /></el-icon>
-              <span>新建简历</span>
-            </div>
-            <div class="dropdown-item" @click="goResumeTemplates">
-              <el-icon><Files /></el-icon>
-              <span>模板库</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="transparent-btn" @click="goMatch">职位匹配</div>
-        <div class="transparent-btn" @click="goInterview">面试练习</div>
-      </div>
-
-      <div class="header-right">
-        <div class="auth-dropdown">
-          <div v-if="authStore.isLoggedIn" class="user-menu">
-            <div class="user-avatar">{{ userNameFirstChar }}</div>
-            <span class="user-name">{{ userNickName }}</span>
-            <el-icon :size="14" class="dropdown-icon"><ArrowDown /></el-icon>
-            <div class="dropdown-menu">
-              <div class="dropdown-item" @click="$router.push('/profile')">
-                <el-icon><User /></el-icon><span>个人中心</span>
-              </div>
-              <div class="dropdown-item logout-item" @click="handleLogout">
-                <el-icon><SwitchButton /></el-icon><span>退出登录</span>
-              </div>
-            </div>
-          </div>
-          <el-button v-else size="large" @click="$router.push('/login')" class="login-btn">
-            登录 / 注册
-          </el-button>
-        </div>
-      </div>
-    </header>
-
     <!-- 主视觉标语 -->
     <section class="hero-section">
       <h1 class="hero-title">✨ AI 简历优化</h1>
@@ -127,71 +73,20 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useAuthStore } from "@/stores/auth";
 import { optimizeResume } from "@/api/resume";
 import ResumePreview from "@/components/ResumePreview.vue";
 import { useResumeStore } from "@/stores/resume";
 import { ElMessage } from "element-plus";
-import {
-  User,
-  ArrowDown,
-  SwitchButton,
-  Document,
-  Plus,
-  Files,
-  MagicStick
-} from "@element-plus/icons-vue";
+import { MagicStick } from "@element-plus/icons-vue";
 
 const route = useRoute();
 const router = useRouter();
 const store = useResumeStore();
-const authStore = useAuthStore();
 
 const targetRole = ref("后端开发工程师");
 const loading = ref(false);
 const original = ref<{ title: string; content: string } | null>(null);
 const optimized = ref<{ title: string; content: string } | null>(null);
-
-// ===== 用户信息 =====
-const userNickName = computed(() => {
-  if (!authStore.userInfo) return "用户";
-  return authStore.userInfo.nickname;
-});
-const userNameFirstChar = computed(() => {
-  const name = userNickName.value;
-  return name.slice(0, 1);
-});
-
-// ===== 简历管理下拉 =====
-const resumeDropdownOpen = ref(false);
-
-const toggleResumeDropdown = () => {
-  resumeDropdownOpen.value = !resumeDropdownOpen.value;
-};
-const closeResumeDropdown = () => {
-  resumeDropdownOpen.value = false;
-};
-
-const goResumes = () => {
-  closeResumeDropdown();
-  router.push('/resumes');
-};
-const goResumeCreate = () => {
-  closeResumeDropdown();
-  router.push('/resumes/new');
-};
-const goResumeTemplates = () => {
-  closeResumeDropdown();
-  router.push('/resumes/templates');
-};
-
-const goMatch = () => router.push('/match');
-const goInterview = () => router.push('/interview/start');
-
-const handleLogout = () => {
-  authStore.clearAuth();
-  router.push('/login');
-};
 
 // ===== 优化逻辑 =====
 onMounted(async () => {
@@ -234,187 +129,6 @@ async function onOptimize() {
   background: linear-gradient(135deg, #CDE2E8 0%, #BCDDBE 100%);
 }
 
-/* ========== 顶部导航栏 ========== */
-.top-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 28px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(100, 163, 134, 0.15);
-}
-
-.header-left { flex: 1; }
-.header-center {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 20px;
-}
-.header-right {
-  flex: 1;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-}
-
-.transparent-btn {
-  padding: 10px 28px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  color: #64A386;
-  font-size: 15px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.transparent-btn:hover {
-  background: rgba(255, 255, 255, 0.7);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(100, 163, 134, 0.15);
-}
-
-.dropdown-arrow {
-  transition: transform 0.3s ease;
-}
-.dropdown-arrow.rotated {
-  transform: rotate(180deg);
-}
-
-.dropdown-wrapper {
-  position: relative;
-}
-
-.dropdown-wrapper .dropdown-menu {
-  position: absolute;
-  top: 52px;
-  left: 50%;
-  transform: translateX(-50%);
-  min-width: 160px;
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.09);
-  padding: 8px 0;
-  z-index: 999;
-  border: 1px solid rgba(100, 163, 134, 0.1);
-}
-
-.dropdown-wrapper .dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 20px;
-  font-size: 14px;
-  color: #2c4d3d;
-  transition: background 0.2s;
-  cursor: pointer;
-}
-.dropdown-wrapper .dropdown-item:hover {
-  background: #f0f7f4;
-  color: #64A386;
-}
-.dropdown-wrapper .dropdown-item .el-icon {
-  color: #64A386;
-}
-
-.auth-dropdown {
-  position: relative;
-}
-.user-menu {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 16px 6px 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.4);
-  cursor: pointer;
-  transition: background 0.25s ease;
-  height: 44px;
-}
-.user-menu:hover {
-  background: rgba(255, 255, 255, 0.7);
-}
-.user-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #87CEEB;
-  color: #fff;
-  font-size: 16px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.user-name {
-  font-size: 15px;
-  color: #2c4d3d;
-}
-.dropdown-icon {
-  transition: transform 0.2s ease;
-}
-.user-menu:hover .dropdown-icon {
-  transform: rotate(180deg);
-}
-
-.auth-dropdown .dropdown-menu {
-  position: absolute;
-  top: 50px;
-  right: 0;
-  min-width: 160px;
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.09);
-  padding: 8px 0;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(10px);
-  transition: all 0.25s ease;
-  z-index: 999;
-}
-.user-menu:hover .auth-dropdown .dropdown-menu {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-}
-.auth-dropdown .dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 18px;
-  font-size: 14px;
-  color: #333;
-  transition: background 0.2s;
-  cursor: pointer;
-}
-.auth-dropdown .dropdown-item:hover {
-  background: #f0f7f4;
-  color: #64A386;
-}
-.logout-item {
-  color: #e16262;
-}
-.logout-item:hover {
-  background: #fef2f2;
-  color: #dc4444;
-}
-
-.login-btn {
-  background: rgba(100, 163, 134, 0.85);
-  border: none;
-  color: #fff;
-  border-radius: 999px;
-}
-
-/* ========== 标语 ========== */
 .hero-section {
   text-align: center;
   margin-bottom: 36px;
@@ -422,11 +136,13 @@ async function onOptimize() {
   background: #FBFCCD;
   border-radius: 16px;
 }
+
 .hero-title {
   margin: 0 0 12px;
   font-size: 32px;
   color: #64A386;
 }
+
 .hero-subtitle {
   margin: 0;
   color: #4f6b5d;
@@ -434,7 +150,6 @@ async function onOptimize() {
   line-height: 1.7;
 }
 
-/* ========== 优化设置 ========== */
 .content-section {
   margin-bottom: 28px;
 }
@@ -519,7 +234,6 @@ async function onOptimize() {
   box-shadow: 0 4px 16px rgba(100, 163, 134, 0.25);
 }
 
-/* ========== 预览区域 ========== */
 .previews-section {
   max-width: 1200px;
   margin: 0 auto;
@@ -591,7 +305,9 @@ async function onOptimize() {
 .blank-area {
   width: 100%;
   min-height: 40px;
+
 }
+
 
 .scale-fade-enter-active {
   transition: all 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
