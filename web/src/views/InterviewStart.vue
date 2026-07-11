@@ -294,5 +294,6 @@ async function onStart() {
   z-index: 1;
   width: 100%;
   min-height: 80px;
+
 }
 </style>

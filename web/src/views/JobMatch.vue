@@ -365,6 +365,7 @@ async function onMatch() {
 
 
 .score-value {
+
   position: relative;
   z-index: 1;
   font-size: 2.2rem;

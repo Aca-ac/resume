@@ -305,6 +305,7 @@ async function onOptimize() {
 .blank-area {
   width: 100%;
   min-height: 40px;
+
 }
 
 

@@ -769,6 +769,7 @@ onMounted(() => {
 
   :deep(.profile-card .el-card__body) {
     padding: 8px 10px;
+
   }
 
 

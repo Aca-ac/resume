@@ -187,6 +187,7 @@ async function onImport(options: { file: File }) {
   background: #f8fbf9;
   padding: 4px 16px;
   border-radius: 20px;
+
 }
 
 

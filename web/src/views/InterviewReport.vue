@@ -148,5 +148,6 @@ async function onGenerate() {
 .scale-fade-enter-from {
   opacity: 0;
   transform: translateY(16px);
+
 }
 </style>

@@ -198,11 +198,13 @@ async function onExport(id: number) {
 }
 .action-btn:hover {
   text-decoration: underline;
+
 }
 
 
 .blank-area {
   width: 100%;
   min-height: 80px;
+
 }
 </style>
