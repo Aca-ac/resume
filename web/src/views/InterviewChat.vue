@@ -1,6 +1,6 @@
-// InterviewChat.vue
+// InterviewReport.vue
 <template>
-  <div class="chat-page">
+  <div class="report-page">
     <!-- 顶部导航栏 -->
     <header class="top-header">
       <div class="header-left">
@@ -10,9 +10,9 @@
         </el-button>
       </div>
       <div class="header-center">
-        <div class="nav-btn" @click="goResumes">简历管理</div>
-        <div class="nav-btn" @click="goMatch">职位匹配</div>
-        <div class="nav-btn active" @click="goInterview">面试练习</div>
+        <div class="nav-btn">简历管理</div>
+        <div class="nav-btn">职位匹配</div>
+        <div class="nav-btn active">面试练习</div>
       </div>
       <div class="header-right">
         <div class="auth-dropdown">
@@ -37,48 +37,32 @@
     </header>
 
     <div class="page-content">
-      <div class="chat-header">
-        <h2 class="page-title">面试对话</h2>
-        <el-button type="primary" plain @click="$router.push(`/interview/${sessionId}/report`)">
-          查看报告
-        </el-button>
+      <div class="toolbar">
+        <h2 class="page-title">面试报告</h2>
+        <div class="toolbar-actions">
+          <el-button type="primary" :loading="loading" @click="onGenerate">
+            重新生成报告
+          </el-button>
+          <el-button @click="$router.push('/interview/start')">开始新面试</el-button>
+        </div>
       </div>
 
-      <div class="messages-panel">
-        <transition-group name="msg" tag="div" class="messages">
-          <div
-              v-for="(m, idx) in interview.messages"
-              :key="idx"
-              class="msg-bubble"
-              :class="m.role"
-          >
-            <div class="msg-avatar">{{ m.role === 'user' ? '我' : 'AI' }}</div>
-            <div class="msg-body">
-              <span class="msg-role">{{ m.role === 'user' ? '我' : '面试官' }}</span>
-              <p>{{ m.content }}</p>
-            </div>
+      <transition name="scale-fade">
+        <el-card v-if="report" class="report-card animate-fade-up" shadow="hover">
+          <div class="report-header">
+            <el-tag type="success" size="large">面试已完成</el-tag>
           </div>
-          <div v-if="loading" key="typing" class="msg-bubble assistant typing">
-            <div class="msg-avatar">AI</div>
-            <div class="msg-body">
-              <span class="typing-dots"><span></span><span></span><span></span></span>
-            </div>
+          <div class="report-content">
+            <pre>{{ report }}</pre>
           </div>
-        </transition-group>
-      </div>
+        </el-card>
+      </transition>
 
-      <el-input
-          v-model="answer"
-          type="textarea"
-          :rows="4"
-          placeholder="输入你的回答..."
-          class="input-area"
-          @keydown.ctrl.enter="onSend"
+      <el-empty
+          v-if="!report && !loading"
+          description="暂未生成报告，请完成面试"
+          class="animate-fade-up"
       />
-      <div class="actions">
-        <el-button type="primary" :loading="loading" @click="onSend">发送回答</el-button>
-        <el-button @click="$router.push(`/interview/${sessionId}/report`)">结束面试 → 查看报告</el-button>
-      </div>
     </div>
   </div>
 </template>
@@ -88,7 +72,6 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useInterviewStore } from "@/stores/interview";
 import { useAuthStore } from "@/stores/auth";
-import { fetchMessages } from "@/api/interview";
 import { ElMessage } from "element-plus";
 import { User, ArrowDown, SwitchButton, ArrowLeft } from "@element-plus/icons-vue";
 
@@ -96,44 +79,44 @@ const route = useRoute();
 const router = useRouter();
 const interview = useInterviewStore();
 const authStore = useAuthStore();
+
 const sessionId = computed(() => Number(route.params.sessionId));
-const answer = ref("");
 const loading = ref(false);
+const report = ref("");
 
 const userNickName = computed(() => authStore.userInfo?.nickname || "用户");
 const userNameFirstChar = computed(() => userNickName.value.slice(0, 1));
 
 const goHome = () => router.push('/dashboard');
-const goResumes = () => router.push('/resumes');
-const goMatch = () => router.push('/match');
-const goInterview = () => router.push('/interview/start');
 
 const handleLogout = () => {
   authStore.clearAuth();
   router.push('/login');
 };
 
-onMounted(async () => {
-  interview.sessionId = sessionId.value;
-  interview.messages = await fetchMessages(sessionId.value);
-});
-
-async function onSend() {
-  if (!answer.value.trim()) return;
+async function loadReport() {
   loading.value = true;
   try {
-    await interview.answer(answer.value);
-    answer.value = "";
+    const session = await interview.loadReport(sessionId.value);
+    report.value = session.report || "";
   } catch (e: any) {
-    ElMessage.error(e.message || "发送失败");
+    ElMessage.error(e.message || "获取报告失败");
   } finally {
     loading.value = false;
   }
 }
+
+onMounted(() => {
+  loadReport();
+});
+
+async function onGenerate() {
+  await loadReport();
+}
 </script>
 
 <style scoped>
-.chat-page {
+.report-page {
   width: 100%;
   min-height: 100vh;
   padding: 20px 40px;
@@ -183,7 +166,6 @@ async function onSend() {
   align-items: center;
 }
 
-/* ===== 返回首页按钮 ===== */
 .back-home-btn {
   background: rgba(255, 255, 255, 0.4);
   backdrop-filter: blur(8px);
@@ -203,7 +185,7 @@ async function onSend() {
   box-shadow: 0 8px 20px rgba(100, 163, 134, 0.12);
 }
 
-/* ===== 导航按钮 ===== */
+/* ===== 导航按钮（仅展示，无跳转） ===== */
 .nav-btn {
   padding: 8px 24px;
   border-radius: 999px;
@@ -213,9 +195,9 @@ async function onSend() {
   color: #5a8a7a;
   font-size: 14px;
   font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
   white-space: nowrap;
+  cursor: default;
+  transition: all 0.3s ease;
 }
 .nav-btn:hover {
   background: rgba(255, 255, 255, 0.6);
@@ -228,7 +210,6 @@ async function onSend() {
   color: #3a6a5a;
 }
 
-/* ===== 用户下拉 ===== */
 .auth-dropdown { position: relative; }
 .user-menu {
   display: flex;
@@ -314,7 +295,7 @@ async function onSend() {
   padding: 0 8px;
 }
 
-.chat-header {
+.toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -328,123 +309,50 @@ async function onSend() {
   margin: 0;
 }
 
-.messages-panel {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(20px);
+.toolbar-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.report-card {
   border-radius: 24px;
-  box-shadow: 0 30px 80px rgba(100, 163, 134, 0.1);
-  padding: 24px;
-  min-height: 340px;
-  max-height: 500px;
-  overflow-y: auto;
-  margin-bottom: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-.messages {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.msg-bubble {
-  display: flex;
-  gap: 12px;
-  max-width: 85%;
-}
-
-.msg-bubble.user {
-  flex-direction: row-reverse;
-  align-self: flex-end;
-}
-
-.msg-avatar {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 600;
-  color: #fff;
-}
-
-.user .msg-avatar {
-  background: linear-gradient(135deg, #409eff, #337ecc);
-}
-.assistant .msg-avatar {
-  background: linear-gradient(135deg, #67c23a, #529b2e);
-}
-
-.msg-body {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(4px);
-  padding: 12px 16px;
-  border-radius: 12px;
-  border-top-left-radius: 4px;
-}
-
-.user .msg-body {
-  background: rgba(64, 158, 255, 0.1);
-  border-top-left-radius: 12px;
-  border-top-right-radius: 4px;
-}
-
-.msg-role {
-  font-size: 12px;
-  color: #909399;
-  font-weight: 600;
-}
-
-.msg-body p {
-  margin: 6px 0 0;
-  line-height: 1.6;
-  color: #2c4d3d;
-}
-
-.msg-enter-active {
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.msg-enter-from {
-  opacity: 0;
-  transform: translateY(16px) scale(0.96);
-}
-
-.typing-dots span {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #67c23a;
-  margin: 0 3px;
-  animation: typingBounce 1.2s ease-in-out infinite;
-}
-.typing-dots span:nth-child(2) { animation-delay: 0.15s; }
-.typing-dots span:nth-child(3) { animation-delay: 0.3s; }
-
-@keyframes typingBounce {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-  30% { transform: translateY(-6px); opacity: 1; }
-}
-
-.input-area {
-  margin-bottom: 12px;
-}
-.input-area :deep(.el-textarea__inner) {
-  border-radius: 16px;
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.3);
+  border-left: 4px solid #64A386;
+  overflow: hidden;
 }
 
-.actions {
-  display: flex;
-  gap: 12px;
+.report-header {
+  padding: 16px 20px 0;
+  border-bottom: 1px solid rgba(100, 163, 134, 0.1);
 }
-.actions :deep(.el-button--primary) {
-  background: linear-gradient(135deg, #64A386 0%, #4c8a6e 100%);
-  border: none;
+
+.report-content {
+  padding: 20px;
+}
+
+.report-content pre {
+  white-space: pre-wrap;
+  margin: 0;
+  line-height: 1.8;
+  color: #2c4d3d;
+  font-family: inherit;
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.6s ease-out;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.scale-fade-enter-active {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.scale-fade-enter-from {
+  opacity: 0;
+  transform: translateY(16px);
 }
 </style>

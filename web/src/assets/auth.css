@@ -1,26 +1,110 @@
-.auth-page {
+
+* {
+  box-sizing: border-box;
+}
+
+.page-container,
+.start-page,
+.match-page,
+.editor-page,
+.import-page,
+.list-page,
+.optimize-page,
+.report-page,
+.chat-page {
+  background: linear-gradient(135deg, #e8f0ec 0%, #dce8e2 100%);
   min-height: 100vh;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-  position: relative;
+  padding: 24px 32px;
 }
 
-.auth-card {
-  width: 420px;
+.glass-card,
+.content-section,
+.form-card,
+.result-card,
+.preview-card,
+.import-card,
+.optimize-card,
+.report-card,
+.messages-panel,
+.el-card {
+  background: rgba(255, 255, 255, 0.5) !important;
+  backdrop-filter: blur(12px) !important;
+  border: none !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04) !important;
   border-radius: 16px !important;
-  background: #fff !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-  animation: scaleIn 0.35s ease both;
-  position: relative;
-  z-index: 1;
+  padding: 24px 28px !important;
 }
 
-.auth-card h2 {
-  margin: 0 0 20px;
-  text-align: center;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.hero-section {
+  background: rgba(251, 252, 205, 0.35) !important;
+  backdrop-filter: blur(4px);
+  border: none !important;
+  border-radius: 16px;
+  padding: 28px 40px;
+}
+
+
+.el-table {
+  background: transparent !important;
+  border: none !important;
+
+  th,
+  td {
+    border: none !important;
+    background: transparent !important;
+  }
+
+  .el-table__header th {
+    background: rgba(240, 247, 244, 0.5) !important;
+  }
+
+  .el-table__row {
+    background: transparent !important;
+
+    &:hover {
+      background: rgba(248, 251, 249, 0.4) !important;
+    }
+  }
+}
+
+.el-divider,
+.el-card__body,
+.el-dialog,
+.el-popover {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.el-input__wrapper,
+.el-textarea__inner,
+.el-select .el-input__wrapper {
+  background: rgba(255, 255, 255, 0.5) !important;
+  backdrop-filter: blur(4px);
+  border: none !important;
+  box-shadow: 0 0 0 1px rgba(100, 163, 134, 0.1) !important;
+
+  &.is-focus {
+    box-shadow: 0 0 0 2px rgba(100, 163, 134, 0.2) !important;
+    background: rgba(255, 255, 255, 0.7) !important;
+  }
+}
+
+.transparent-btn,
+.nav-btn {
+  background: rgba(255, 255, 255, 0.2) !important;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.4) !important;
+  }
+
+  &.active {
+    background: rgba(100, 163, 134, 0.15) !important;
+    border-color: rgba(100, 163, 134, 0.2) !important;
+  }
+}
+
+.bubbles {
+  display: none !important;
 }

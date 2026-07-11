@@ -9,9 +9,20 @@
 
     <!-- 整体居中容器 -->
     <div class="profile-wrapper">
-      <div class="profile-header">
-        <h2 class="page-title">个人中心</h2>
-        <p class="subtitle">查看和修改您的个人信息</p>
+      <!-- 返回主页按钮（右上角） -->
+      <div class="header-top">
+        <div class="header-title-group">
+          <h2 class="page-title">个人中心</h2>
+          <p class="subtitle">查看和修改您的个人信息</p>
+        </div>
+        <el-button
+            class="back-home-btn"
+            link
+            @click="goHome"
+        >
+          <el-icon><ArrowLeft /></el-icon>
+          返回主页
+        </el-button>
       </div>
 
       <el-card class="profile-card" shadow="hover">
@@ -169,10 +180,13 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { ArrowLeft } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import type { UserProfile } from '@/types/api'
 
+const router = useRouter()
 const authStore = useAuthStore()
 const profileFormRef = ref()
 const isEditing = ref(false)
@@ -236,6 +250,11 @@ const rules = {
   city: [
     { max: 50, message: '城市名称不能超过50个字符', trigger: 'blur' }
   ]
+}
+
+// 返回主页
+const goHome = () => {
+  router.push('/dashboard')
 }
 
 // 加载用户信息
@@ -407,21 +426,30 @@ onMounted(() => {
   }
 }
 
-/* ===== 内容外层容器 垂直水平居中 ===== */
+/* ===== 内容外层容器 ===== */
 .profile-wrapper {
   position: relative;
   z-index: 1;
   width: 100%;
   max-width: 820px;
-  /* 取消固定高度，内容自适应且整体在视口中居中 */
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-.profile-header {
-  text-align: center;
+/* ===== 顶部标题区域（标题居中 + 按钮右上角） ===== */
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   flex-shrink: 0;
+  padding: 0 4px;
+}
+
+.header-title-group {
+  text-align: center;
+  flex: 1;
 }
 
 .page-title {
@@ -438,7 +466,32 @@ onMounted(() => {
   margin: 0;
 }
 
-/* ===== 卡片 取消flex滚动布局 ===== */
+/* ===== 返回主页按钮（右上角） ===== */
+.back-home-btn {
+  color: #4a6a5a;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 20px;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  white-space: nowrap;
+}
+
+.back-home-btn:hover {
+  background: rgba(255, 255, 255, 0.7);
+  color: #2c4d3d;
+  transform: translateX(-2px);
+}
+
+.back-home-btn .el-icon {
+  font-size: 16px;
+}
+
+/* ===== 卡片 ===== */
 .profile-card {
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.3);
@@ -450,7 +503,6 @@ onMounted(() => {
 
 :deep(.profile-card .el-card__body) {
   padding: 14px 20px;
-  /* 移除overflow-y:auto，不再出现滚动条 */
 }
 
 :deep(.profile-card .el-card__header) {
@@ -490,7 +542,7 @@ onMounted(() => {
   opacity: 0.9;
 }
 
-/* ===== 表单紧凑布局 缩小间距 ===== */
+/* ===== 表单紧凑布局 ===== */
 :deep(.el-form-item) {
   margin-bottom: 10px;
 }
@@ -579,7 +631,7 @@ onMounted(() => {
   font-size: 14px;
 }
 
-/* 移除滚动条相关样式（不再需要滚动） */
+/* 移除滚动条相关样式 */
 :deep(.el-card__body::-webkit-scrollbar) {
   display: none;
 }
@@ -602,6 +654,19 @@ onMounted(() => {
 
   .subtitle {
     font-size: 13px;
+  }
+
+  .header-top {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .back-home-btn {
+    font-size: 13px;
+    padding: 4px 12px;
+  }
+  .back-home-btn .el-icon {
+    font-size: 14px;
   }
 
   :deep(.el-col) {
@@ -668,8 +733,24 @@ onMounted(() => {
     font-size: 12px;
   }
 
-  .profile-header {
-    margin-bottom: 0;
+  .header-top {
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .header-title-group {
+    order: 1;
+  }
+
+  .back-home-btn {
+    order: 2;
+    font-size: 12px;
+    padding: 3px 10px;
+    align-self: flex-end;
+  }
+  .back-home-btn .el-icon {
+    font-size: 12px;
   }
 
   :deep(.el-input__inner) {
