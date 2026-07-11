@@ -32,6 +32,7 @@
                 placeholder="请输入邮箱"
                 size="large"
                 prefix-icon="Message"
+                autocomplete="email"
             />
           </el-form-item>
 
