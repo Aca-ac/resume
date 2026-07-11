@@ -12,10 +12,7 @@
 
 ## Quick start
 
-```bash
-docker compose up -d
-cd server && mvn spring-boot:run -Dspring-boot.run.profiles=dev
-cd web && npm install && npm run dev
+直接运行start.cmd即可
 ```
 
 - API: http://localhost:8080
