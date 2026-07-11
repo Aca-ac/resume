@@ -1,8 +1,10 @@
 package com.resume.module.resume.controller;
 
 import com.resume.common.Result;
+import com.resume.config.RateLimiter;
 import com.resume.module.resume.dto.ChunkUploadVO;
 import com.resume.module.resume.dto.ImportResultVO;
+import com.resume.module.resume.dto.OptimizeRequest;
 import com.resume.module.resume.dto.ResumeSaveRequest;
 import com.resume.module.resume.dto.ResumeVO;
 import com.resume.module.resume.entity.ResumeDetail;
@@ -65,6 +67,15 @@ public class ResumeController {
     public Result<Void> deleteResume(@PathVariable Long id, @RequestAttribute Long userId) {
         resumeService.deleteResume(id, userId);
         return Result.success();
+    }
+
+    @PostMapping("/{id}/optimize")
+    @RateLimiter(key = "optimize", maxCount = 20, duration = 60)
+    public Result<ResumeVO> optimizeResume(@PathVariable Long id,
+                                           @RequestAttribute Long userId,
+                                           @RequestBody(required = false) OptimizeRequest body) {
+        String targetRole = body == null ? null : body.getTargetRole();
+        return Result.success(resumeService.optimizeResume(userId, id, targetRole));
     }
 
     @GetMapping("/{resumeId}/details")

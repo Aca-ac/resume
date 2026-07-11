@@ -1,6 +1,7 @@
 import request from "@/utils/request";
-import { downloadBlob } from "@/utils/download";
+import { assertDownloadBlob, downloadBlob } from "@/utils/download";
 import type { ResumeItem } from "@/stores/resume";
+import type { AxiosError } from "axios";
 
 interface ApiResult<T> {
   code: number;
@@ -15,6 +16,42 @@ function unwrap<T>(res: ApiResult<T>): T {
     throw new Error(res.message || "请求失败");
   }
   return res.data;
+}
+
+async function readBlobError(error: unknown): Promise<never> {
+  const ax = error as AxiosError<Blob>;
+  const data = ax.response?.data;
+  if (data instanceof Blob) {
+    try {
+      const text = await data.text();
+      const json = JSON.parse(text) as { message?: string };
+      throw new Error(json.message || `导出失败(${ax.response?.status ?? "?"})`);
+    } catch (e) {
+      if (e instanceof Error && !e.message.startsWith("Unexpected") && !(e instanceof SyntaxError)) {
+        throw e;
+      }
+    }
+  }
+  if (ax.code === "ECONNABORTED") {
+    throw new Error("导出超时：后端响应过慢或未启动");
+  }
+  if (ax.message?.includes("Network Error")) {
+    throw new Error("无法连接后端，请确认服务已在 8080 端口启动");
+  }
+  throw error instanceof Error ? error : new Error("导出失败");
+}
+
+async function downloadExport(path: string, filename: string) {
+  try {
+    const raw = (await request.get(path, {
+      responseType: "blob",
+      timeout: 60000
+    })) as Blob;
+    const blob = await assertDownloadBlob(raw);
+    downloadBlob(blob, filename);
+  } catch (e) {
+    await readBlobError(e);
+  }
 }
 
 
@@ -105,22 +142,13 @@ export function optimizeResume(id: number, targetRole: string) {
 }
 
 export async function exportResumePdf(id: number) {
-  const blob = (await request.get(`/v1/resumes/${id}/export/pdf`, {
-    responseType: "blob"
-  })) as Blob;
-  downloadBlob(blob, `resume-${id}.pdf`);
+  await downloadExport(`/v1/resumes/${id}/export/pdf`, `resume-${id}.pdf`);
 }
 
 export async function exportResumeDocx(id: number) {
-  const blob = (await request.get(`/v1/resumes/${id}/export/docx`, {
-    responseType: "blob"
-  })) as Blob;
-  downloadBlob(blob, `resume-${id}.docx`);
+  await downloadExport(`/v1/resumes/${id}/export/docx`, `resume-${id}.docx`);
 }
 
 export async function exportResumeText(id: number) {
-  const blob = (await request.get(`/v1/resumes/${id}/export/text`, {
-    responseType: "blob"
-  })) as Blob;
-  downloadBlob(blob, `resume-${id}.txt`);
+  await downloadExport(`/v1/resumes/${id}/export/text`, `resume-${id}.txt`);
 }

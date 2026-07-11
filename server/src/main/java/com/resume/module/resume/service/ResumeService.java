@@ -46,6 +46,7 @@ public class ResumeService {
     private final OcrService ocrService;
     private final ChunkUploadService chunkUploadService;
     private final StorageProperties storageProperties;
+    private final ResumeOptimizeService optimizeService;
 
     // ========== 简历 CRUD（正文存 resume_details.SUMMARY）==========
 
@@ -231,6 +232,16 @@ public class ResumeService {
     public byte[] exportText(Long userId, Long id) {
         Resume resume = getResume(id, userId);
         return exportService.exportText(resume.getTitle(), loadSummaryContent(id));
+    }
+
+    /**
+     * AI 按目标职位优化简历正文；不覆盖原简历，仅返回优化结果供前端预览。
+     */
+    public ResumeVO optimizeResume(Long userId, Long id, String targetRole) {
+        Resume resume = getResume(id, userId);
+        String original = loadSummaryContent(id);
+        String optimized = optimizeService.optimize(original, targetRole);
+        return toVO(resume, optimized);
     }
 
     // ========== 文件上传与 OCR ==========
