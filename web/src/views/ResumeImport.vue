@@ -189,6 +189,7 @@ async function onImport(options: { file: File }) {
   border-radius: 20px;
 }
 
+
 .blank-area {
   width: 100%;
   min-height: 40px;

@@ -355,4 +355,5 @@ async function onGenerate() {
   opacity: 0;
   transform: translateY(16px);
 }
+
 </style>

@@ -289,6 +289,7 @@ const handleBack = async () => {
   min-height: 40px;
 }
 
+
 .fade-slide-enter-active {
   transition: all 0.4s ease;
 }

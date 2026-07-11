@@ -99,6 +99,7 @@
     background: rgba(255, 255, 255, 0.4) !important;
   }
 
+
   &.active {
     background: rgba(100, 163, 134, 0.15) !important;
     border-color: rgba(100, 163, 134, 0.2) !important;

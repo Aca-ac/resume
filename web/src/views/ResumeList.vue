@@ -200,6 +200,7 @@ async function onExport(id: number) {
   text-decoration: underline;
 }
 
+
 .blank-area {
   width: 100%;
   min-height: 80px;
