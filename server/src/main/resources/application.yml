@@ -62,6 +62,8 @@ app:
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
       api-key: ${DASHSCOPE_API_KEY:${QWEN_API_KEY:}}
       model: qwen-plus
+      ocr-model: ${QWEN_OCR_MODEL:qwen-vl-ocr}
+      workspace-id: ${QWEN_WORKSPACE_ID:}
 
 management:
   endpoints:
@@ -87,6 +89,4 @@ email:
           starttls:
             enable: true
 
-dashscope-maas:
-  api-key: sk-ws-H.RXIXPHY.irXZ.MEQCIDqhBEh6QeoNTIT3eLvgRE9OEyh7jq-9nEcA-fMl6_8SAiBt2r2dZ4k1b6o6g-vFXTpzF563FI5SCsMYVHRNfh-OfQ
 

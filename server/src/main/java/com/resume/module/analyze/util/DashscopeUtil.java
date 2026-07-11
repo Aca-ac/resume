@@ -11,14 +11,20 @@ import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.alibaba.dashscope.utils.Constants;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import jakarta.annotation.PostConstruct;
 @Component
 public class DashscopeUtil {
-    @Value("${dashscope-maas.api-key:}")
+    @Value("${app.ai.qwen.api-key:}")
     private String apiKey;
-    static {
-        Constants.baseHttpApiUrl = "https://ws-ai0lwpilsl2yp798.cn-beijing.maas.aliyuncs.com/api/v1";
+    @Value("${app.ai.qwen.workspace-id:}")
+    private String workspaceId;
+    @PostConstruct
+    public void init() {
+        Constants.baseHttpApiUrl = String.format("https://%s.cn-beijing.maas.aliyuncs.com/api/v1", workspaceId);
     }
     public String singleSystemChat(String systemMessage) throws ApiException, NoApiKeyException, InputRequiredException {
+        System.out.println("url为：" + Constants.baseHttpApiUrl);
+        System.out.println("apiKey为：" + apiKey);
         Generation gen = new Generation();
         Message systemMsg = Message.builder()
                 .role(Role.SYSTEM.getValue())
