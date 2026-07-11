@@ -16,18 +16,20 @@ import com.resume.module.resume.mapper.ResumeMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StreamUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -35,13 +37,13 @@ import java.util.regex.Pattern;
 public class MatchService {
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private static final Pattern SCORE_PATTERN = Pattern.compile("\"?matchScore\"?\\s*[:=]\\s*(\\d{1,3})");
 
     private final MatchRecordMapper matchRecordMapper;
     private final ResumeMapper resumeMapper;
     private final ResumeDetailMapper resumeDetailMapper;
     private final ObjectMapper objectMapper;
     private final RestClient restClient = RestClient.create();
+    private final ResourceLoader resourceLoader;
 
     @Value("${app.ai.qwen.api-key:}")
     private String apiKey;
@@ -63,7 +65,7 @@ public class MatchService {
         if (resume == null || !resume.getUserId().equals(userId)) {
             throw new BusinessException(404, "简历不存在");
         }
-        String resumeContent = loadSummary(resumeId);
+        String resumeContent = buildResumeContent(resumeId);
         if (resumeContent.isBlank()) {
             throw new BusinessException(400, "简历内容为空，请先完善简历");
         }
@@ -79,6 +81,11 @@ public class MatchService {
         record.setResumeId(resumeId);
         record.setJdText(jdText.trim());
         record.setMatchScore(parsed.score());
+        record.setSummaryScore(parsed.summaryScore());
+        record.setEducationScore(parsed.educationScore());
+        record.setExperienceScore(parsed.experienceScore());
+        record.setSkillScore(parsed.skillScore());
+        record.setProjectScore(parsed.projectScore());
         record.setAnalysis(parsed.analysis());
         record.setCreatedAt(LocalDateTime.now());
         matchRecordMapper.insert(record);
@@ -103,18 +110,9 @@ public class MatchService {
     }
 
     private String callAi(String resumeContent, String jdText) {
-        String prompt = """
-                你是招聘匹配分析助手。请对比「简历」与「职位描述(JD)」，评估匹配程度。
-                严格只输出一个 JSON 对象，不要 Markdown，不要其它说明，格式如下：
-                {"matchScore":85,"analysis":"分点说明匹配优势、差距与改进建议（中文）"}
-                matchScore 为 0-100 的整数。
-                
-                【职位描述】
-                %s
-                
-                【简历】
-                %s
-                """.formatted(jdText, resumeContent);
+        String promptTemplate = loadPromptTemplate();
+        String prompt = promptTemplate.replace("【在此处粘贴简历全文】", resumeContent)
+                + "\n\n## 六、职位描述(JD)信息\n【职位描述】\n" + jdText;
 
         Map<String, Object> body = Map.of(
                 "model", model,
@@ -150,6 +148,21 @@ public class MatchService {
         }
     }
 
+    private String loadPromptTemplate() {
+        try {
+            Resource resource = resourceLoader.getResource("classpath:prompts/resume_analysis_prompt.txt");
+            if (!resource.exists()) {
+                throw new BusinessException(500, "提示词文件不存在");
+            }
+            return StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("Failed to load prompt template: {}", e.getMessage());
+            throw new BusinessException(500, "加载提示词文件失败");
+        }
+    }
+
     private String parseChatContent(Map<String, Object> resp) {
         if (resp == null) {
             return null;
@@ -174,19 +187,28 @@ public class MatchService {
         String json = extractJsonObject(raw);
         try {
             JsonNode node = objectMapper.readTree(json);
-            int score = node.path("matchScore").asInt(-1);
-            String analysis = node.path("analysis").asText("");
-            if (score < 0 || score > 100) {
-                score = extractScoreFallback(raw);
-            }
+            int summaryScore = clampScore(node.path("summary_score").asInt(-1));
+            int educationScore = clampScore(node.path("education_score").asInt(-1));
+            int experienceScore = clampScore(node.path("experience_score").asInt(-1));
+            int skillScore = clampScore(node.path("skill_score").asInt(-1));
+            int projectScore = clampScore(node.path("project_score").asInt(-1));
+            String analysis = node.path("suggestions").asText("");
+
+            int totalScore = calculateTotalScore(summaryScore, educationScore, experienceScore, skillScore, projectScore);
+
             if (analysis.isBlank()) {
                 analysis = raw;
             }
-            return new ParsedMatch(clampScore(score), analysis.trim());
+            return new ParsedMatch(totalScore, summaryScore, educationScore, experienceScore, skillScore, projectScore, analysis.trim());
         } catch (Exception e) {
-            int score = extractScoreFallback(raw);
-            return new ParsedMatch(clampScore(score), raw);
+            log.warn("Failed to parse AI result: {}", e.getMessage());
+            return new ParsedMatch(60, 0, 0, 0, 0, 0, raw);
         }
+    }
+
+    private int calculateTotalScore(int summary, int education, int experience, int skill, int project) {
+        double total = summary * 0.10 + education * 0.15 + experience * 0.25 + skill * 0.25 + project * 0.25;
+        return (int) Math.round(total);
     }
 
     private String extractJsonObject(String raw) {
@@ -198,14 +220,6 @@ public class MatchService {
         return raw;
     }
 
-    private int extractScoreFallback(String raw) {
-        Matcher m = SCORE_PATTERN.matcher(raw);
-        if (m.find()) {
-            return Integer.parseInt(m.group(1));
-        }
-        return 60;
-    }
-
     private int clampScore(int score) {
         if (score < 0) {
             return 0;
@@ -213,12 +227,22 @@ public class MatchService {
         return Math.min(score, 100);
     }
 
-    private String loadSummary(Long resumeId) {
-        ResumeDetail detail = resumeDetailMapper.selectOne(new LambdaQueryWrapper<ResumeDetail>()
-                .eq(ResumeDetail::getResumeId, resumeId)
-                .eq(ResumeDetail::getSectionType, "SUMMARY")
-                .last("LIMIT 1"));
-        return detail == null || detail.getContent() == null ? "" : detail.getContent();
+    private String buildResumeContent(Long resumeId) {
+        List<ResumeDetail> details = resumeDetailMapper.selectList(
+                new LambdaQueryWrapper<ResumeDetail>()
+                        .eq(ResumeDetail::getResumeId, resumeId)
+                        .orderByAsc(ResumeDetail::getSortOrder)
+        );
+        if (details.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder builder = new StringBuilder();
+        for (ResumeDetail detail : details) {
+            builder.append("【").append(detail.getSectionName()).append("】\n");
+            builder.append(detail.getContent()).append("\n\n");
+        }
+        return builder.toString();
     }
 
     private MatchRecordVO toVo(MatchRecord record) {
@@ -226,11 +250,16 @@ public class MatchService {
         vo.setId(record.getId());
         vo.setResumeId(record.getResumeId());
         vo.setMatchScore(record.getMatchScore());
+        vo.setSummaryScore(record.getSummaryScore());
+        vo.setEducationScore(record.getEducationScore());
+        vo.setExperienceScore(record.getExperienceScore());
+        vo.setSkillScore(record.getSkillScore());
+        vo.setProjectScore(record.getProjectScore());
         vo.setAnalysis(record.getAnalysis());
         vo.setCreatedAt(record.getCreatedAt() == null ? null : record.getCreatedAt().format(FMT));
         return vo;
     }
 
-    private record ParsedMatch(int score, String analysis) {
+    private record ParsedMatch(int score, int summaryScore, int educationScore, int experienceScore, int skillScore, int projectScore, String analysis) {
     }
 }

@@ -16,6 +16,11 @@ public class MatchRecord {
     private Long resumeId;
     private String jdText;
     private Integer matchScore;
+    private Integer summaryScore;
+    private Integer educationScore;
+    private Integer experienceScore;
+    private Integer skillScore;
+    private Integer projectScore;
     private String analysis;
     private LocalDateTime createdAt;
 }

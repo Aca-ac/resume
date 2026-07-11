@@ -69,7 +69,7 @@ if not exist pom.xml (
 )
 
 echo 正在启动后端服务 (dev 环境)...
-start "后端服务" /d "%~dp0server" cmd /k "mvn spring-boot:run -Dspring-boot.run.profiles=dev"
+start "后端服务" /d "%~dp0server" cmd /k "mvn clean spring-boot:run -Dspring-boot.run.profiles=dev"
 
 echo.
 echo [3/3] 启动前端服务 (Vue + Vite)
