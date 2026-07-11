@@ -88,7 +88,22 @@ async function onDelete(id: number) {
 }
 
 async function onExport(id: number) {
-  await exportResumePdf(id);
+  const loadingMsg = ElMessage({
+    message: "正在生成 PDF，请稍候…",
+    type: "info",
+    duration: 0
+  });
+  try {
+    await exportResumePdf(id);
+    ElMessage.success("PDF 已开始下载");
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "导出失败";
+    ElMessage.error(msg.includes("timeout") || msg.includes("超时")
+      ? "导出超时：请确认后端已启动，或改用编辑页内容较短的简历重试"
+      : msg);
+  } finally {
+    loadingMsg.close();
+  }
 }
 </script>
 
