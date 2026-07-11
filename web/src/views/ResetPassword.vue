@@ -110,7 +110,7 @@ const loading = ref(false)
 const codeCountdown = ref(0)
 let countdownTimer: number | null = null
 
-const resetImage = new URL('@/assets/resumepicture/picture11.jpg', import.meta.url).href
+const resetImage = new URL('@/assets/resumepicture/picture011.jpg', import.meta.url).href
 
 const resetForm = ref({
   email: '',

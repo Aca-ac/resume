@@ -67,15 +67,15 @@ const currentIndex = ref(0);
 let autoplayTimer: ReturnType<typeof setInterval> | null = null;
 
 const templateImgs = [
-  new URL('@/assets/resumepicture/picture1.jpg', import.meta.url).href,
-  new URL('@/assets/resumepicture/picture2.jpg', import.meta.url).href,
-  new URL('@/assets/resumepicture/picture3.jpg', import.meta.url).href,
-  new URL('@/assets/resumepicture/picture4.jpg', import.meta.url).href,
-  new URL('@/assets/resumepicture/picture5.jpg', import.meta.url).href,
-  new URL('@/assets/resumepicture/picture6.jpg', import.meta.url).href,
-  new URL('@/assets/resumepicture/picture7.jpg', import.meta.url).href,
-  new URL('@/assets/resumepicture/picture8.jpg', import.meta.url).href,
-  new URL('@/assets/resumepicture/picture9.jpg', import.meta.url).href,
+  new URL('@/assets/resumepicture/picture001.jpg', import.meta.url).href,
+  new URL('@/assets/resumepicture/picture002.jpg', import.meta.url).href,
+  new URL('@/assets/resumepicture/picture003.jpg', import.meta.url).href,
+  new URL('@/assets/resumepicture/picture004.jpg', import.meta.url).href,
+  new URL('@/assets/resumepicture/picture005.jpg', import.meta.url).href,
+  new URL('@/assets/resumepicture/picture006.jpg', import.meta.url).href,
+  new URL('@/assets/resumepicture/picture007.jpg', import.meta.url).href,
+  new URL('@/assets/resumepicture/picture008.jpg', import.meta.url).href,
+  new URL('@/assets/resumepicture/picture009.jpg', import.meta.url).href,
 ];
 
 const handleCardClick = () => {

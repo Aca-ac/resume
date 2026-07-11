@@ -25,3 +25,6 @@ server/flyway.conf
 # Local Docker overrides (machine-specific, do not commit)
 docker-compose.override.yml
 Dockerfile.local
+
+# 忽略 test 目录下的 module 文件
+src/test/java/com/resume/module/
