@@ -20,11 +20,10 @@ public class DashscopeUtil {
     private String workspaceId;
     @PostConstruct
     public void init() {
-        Constants.baseHttpApiUrl = String.format("https://%s.cn-beijing.maas.aliyuncs.com/api/v1", workspaceId);
+        Constants.baseHttpApiUrl = "https://dashscope.aliyuncs.com/api/v1";
     }
     public String singleSystemChat(String systemMessage) throws ApiException, NoApiKeyException, InputRequiredException {
-        System.out.println("url为：" + Constants.baseHttpApiUrl);
-        System.out.println("apiKey为：" + apiKey);
+
         Generation gen = new Generation();
         Message systemMsg = Message.builder()
                 .role(Role.SYSTEM.getValue())
