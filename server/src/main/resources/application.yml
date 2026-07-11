@@ -63,6 +63,7 @@ app:
       api-key: ${DASHSCOPE_API_KEY:${QWEN_API_KEY:}}
       model: qwen-plus
       ocr-model: ${QWEN_OCR_MODEL:qwen-vl-ocr}
+      workspace-id: ${QWEN_WORKSPACE_ID:}
 
 management:
   endpoints:
@@ -88,9 +89,4 @@ email:
           starttls:
             enable: true
 
-dashscope:
-  api-key: ${DASHSCOPE_API_KEY:${QWEN_API_KEY:}}
-
-dashscope-maas:
-  api-key: ${DASHSCOPE_API_KEY:${QWEN_API_KEY:}}
 

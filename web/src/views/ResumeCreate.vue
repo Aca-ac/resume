@@ -2,8 +2,8 @@
   <div class="editor-page">
     <!-- 主视觉标语 -->
     <section class="hero-section">
-      <h1 class="hero-title">✏️ 编辑简历</h1>
-      <p class="hero-subtitle">修改简历标题和内容，更新你的简历文档。</p>
+      <h1 class="hero-title">✏️ 新建简历</h1>
+      <p class="hero-subtitle">填写简历标题和内容，创建一份全新的简历文档。</p>
     </section>
 
     <!-- 编辑区域 -->
@@ -13,7 +13,7 @@
           <div class="form-card">
             <div class="card-header">
               <span class="card-title">📝 编辑内容</span>
-              <span class="card-subtitle">修改简历信息</span>
+              <span class="card-subtitle">填写简历信息</span>
             </div>
             <el-form :model="form" label-width="80px" label-position="top">
               <el-form-item label="简历标题">
@@ -30,7 +30,7 @@
               <div class="form-actions">
                 <el-button @click="handleBack" class="btn-cancel">取消</el-button>
                 <el-button type="primary" :loading="saving" @click="onSave" class="btn-save">
-                  <el-icon><Check /></el-icon> 保存修改
+                  <el-icon><Check /></el-icon> 保存简历
                 </el-button>
               </div>
             </el-form>
@@ -63,16 +63,20 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch, computed, onMounted } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { reactive, ref, watch, computed } from "vue";
+import { useRouter } from "vue-router";
+import { useAuthStore } from "@/stores/auth";
 import ResumePreview from "@/components/ResumePreview.vue";
 import { useResumeStore } from "@/stores/resume";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Document, Check } from "@element-plus/icons-vue";
+import {
+  Document,
+  Check
+} from "@element-plus/icons-vue";
 
-const route = useRoute();
 const router = useRouter();
 const store = useResumeStore();
+const authStore = useAuthStore();
 const saving = ref(false);
 
 const originForm = reactive({ title: "", content: "" });
@@ -83,21 +87,7 @@ watch([() => form.title, () => form.content], () => {
   isModified.value = form.title !== originForm.title || form.content !== originForm.content;
 });
 
-const isEdit = computed(() => Boolean(route.params.id));
-
 // ===== 页面逻辑 =====
-onMounted(async () => {
-  if (isEdit.value) {
-    await store.loadOne(Number(route.params.id));
-    if (store.current) {
-      form.title = store.current.title;
-      form.content = store.current.content;
-      originForm.title = store.current.title;
-      originForm.content = store.current.content;
-    }
-  }
-});
-
 async function onSave() {
   if (!form.title?.trim()) {
     ElMessage.warning("请先填写简历标题");
@@ -105,11 +95,7 @@ async function onSave() {
   }
   saving.value = true;
   try {
-    await store.save({
-      id: isEdit.value ? Number(route.params.id) : undefined,
-      title: form.title,
-      content: form.content
-    });
+    await store.save({ id: undefined, title: form.title, content: form.content });
     ElMessage.success("保存成功");
     originForm.title = form.title;
     originForm.content = form.content;
@@ -154,6 +140,7 @@ const handleBack = async () => {
   background: linear-gradient(135deg, #CDE2E8 0%, #BCDDBE 100%);
 }
 
+/* ========== 标语 ========== */
 .hero-section {
   text-align: center;
   margin-bottom: 36px;
@@ -161,13 +148,11 @@ const handleBack = async () => {
   background: #FBFCCD;
   border-radius: 16px;
 }
-
 .hero-title {
   margin: 0 0 12px;
   font-size: 32px;
   color: #64A386;
 }
-
 .hero-subtitle {
   margin: 0;
   color: #4f6b5d;
@@ -175,6 +160,7 @@ const handleBack = async () => {
   line-height: 1.7;
 }
 
+/* ========== 内容区域 ========== */
 .content-section {
   background-color: #fff;
   padding: 28px 32px;
