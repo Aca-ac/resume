@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 chcp 65001 >nul
 echo.
 echo ==================== AI Resume Interview 快速启动脚本 ====================
@@ -69,7 +69,7 @@ if not exist pom.xml (
 )
 
 echo 正在启动后端服务 (dev 环境)...
-start "后端服务" /d "%~dp0server" cmd /k "mvn clean spring-boot:run -Dspring-boot.run.profiles=dev"
+start "后端服务" /d "%~dp0server" cmd /k "chcp 65001>nul & mvn clean spring-boot:run -Dspring-boot.run.profiles=dev"
 
 echo.
 echo [3/3] 启动前端服务 (Vue + Vite)
@@ -92,7 +92,7 @@ if not exist node_modules (
 )
 
 echo 正在启动前端服务...
-start "前端服务" /d "%~dp0web" cmd /k "npm run dev"
+start "前端服务" /d "%~dp0web" cmd /k "chcp 65001>nul & npm run dev"
 
 echo.
 echo ==================== 启动完成 ====================
