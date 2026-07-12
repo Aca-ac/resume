@@ -5,23 +5,21 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("match_records")
-public class MatchRecord {
+@TableName("match_dimension")
+public class MatchDimension {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private Long userId;
-    private Long resumeId;
-    private String jdText;
-    private Integer matchScore;
-    private Integer summaryScore;
-    private Integer educationScore;
-    private Integer experienceScore;
-    private Integer skillScore;
-    private Integer projectScore;
     private Long analysisId;
-    private String analysis;
+    private String dimensionKey;
+    private String dimensionName;
+    private Integer score;
+    private BigDecimal weight;
+    private String description;
+    private String details;
+    private Integer sortOrder;
     private LocalDateTime createdAt;
 }

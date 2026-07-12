@@ -12,6 +12,7 @@ public class MatchRecordVO {
     private Integer experienceScore;
     private Integer skillScore;
     private Integer projectScore;
+    private Long analysisId;
     private String analysis;
     private String createdAt;
 }

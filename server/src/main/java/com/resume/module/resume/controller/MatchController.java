@@ -2,6 +2,7 @@ package com.resume.module.resume.controller;
 
 import com.resume.common.Result;
 import com.resume.config.RateLimiter;
+import com.resume.module.resume.dto.MatchAnalysisResultVO;
 import com.resume.module.resume.dto.MatchJdRequest;
 import com.resume.module.resume.dto.MatchRecordVO;
 import com.resume.module.resume.dto.PageResult;
@@ -31,5 +32,11 @@ public class MatchController {
                                                      @RequestParam(defaultValue = "1") int page,
                                                      @RequestParam(defaultValue = "50") int size) {
         return Result.success(matchService.listHistory(userId, page, size));
+    }
+
+    @GetMapping("/analysis/{id}")
+    public Result<MatchAnalysisResultVO> getAnalysis(@RequestAttribute Long userId,
+                                                     @PathVariable Long id) {
+        return Result.success(matchService.getAnalysisById(userId, id));
     }
 }

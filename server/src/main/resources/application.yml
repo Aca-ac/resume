@@ -64,6 +64,9 @@ app:
       model: qwen-plus
       ocr-model: ${QWEN_OCR_MODEL:qwen-vl-ocr}
       workspace-id: ${QWEN_WORKSPACE_ID:}
+  match:
+    # general | technical | management
+    dimension-preset: general
 
 management:
   endpoints:

@@ -8,20 +8,24 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("match_records")
-public class MatchRecord {
+@TableName("match_analysis")
+public class MatchAnalysis {
     @TableId(type = IdType.AUTO)
     private Long id;
     private Long userId;
     private Long resumeId;
+    private Long jobDescriptionId;
     private String jdText;
     private Integer matchScore;
-    private Integer summaryScore;
-    private Integer educationScore;
-    private Integer experienceScore;
-    private Integer skillScore;
-    private Integer projectScore;
-    private Long analysisId;
+    private String matchLevel;
     private String analysis;
+    private String summary;
+    /** JSON array string */
+    private String highlights;
+    /** JSON array string */
+    private String weaknesses;
+    /** JSON array string */
+    private String suggestions;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }
