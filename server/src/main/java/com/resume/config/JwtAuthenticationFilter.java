@@ -21,26 +21,14 @@ import java.util.Collections;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
-    private static final String BEARER_PREFIX = "Bearer ";
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         try {
             String authorization = request.getHeader(AUTHORIZATION_HEADER);
-            if (authorization == null || !authorization.startsWith(BEARER_PREFIX)) {
-                filterChain.doFilter(request, response);
-                return;
-            }
+            Long userId = JwtTokenUtil.getIdFromOriginalToken(authorization);
 
-            String token = authorization.substring(BEARER_PREFIX.length()).trim();
-
-            if (!JwtTokenUtil.validateToken(token)) {
-                filterChain.doFilter(request, response);
-                return;
-            }
-
-            Long userId = JwtTokenUtil.getUserIdFromToken(token);
             if (userId == null) {
                 filterChain.doFilter(request, response);
                 return;
