@@ -21,11 +21,11 @@
       </div>
 
       <el-input
-        v-model="answer"
-        type="textarea"
-        :rows="4"
-        placeholder="输入你的回答…"
-        class="input-area"
+          v-model="answer"
+          type="textarea"
+          :rows="4"
+          placeholder="输入你的回答…"
+          class="input-area"
       />
       <div class="actions">
         <el-button type="primary" :loading="loading" @click="onSend">发送回答</el-button>
