@@ -55,9 +55,18 @@ public class ResumeExportService {
             "C:/Windows/Fonts/simsun.ttc",
             "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
             "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc",
             "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/noto/NotoSansCJK.ttc",
             "/System/Library/Fonts/PingFang.ttc",
             "/System/Library/Fonts/STHeiti Light.ttc"
+    };
+
+    private static final String[] FONT_SEARCH_DIRS = {
+            "/usr/share/fonts/opentype/noto",
+            "/usr/share/fonts/truetype/noto",
+            "/usr/share/fonts/truetype/wqy",
+            "/usr/share/fonts/opentype/wqy"
     };
 
     /** Preferred face names inside common TTC files. */
@@ -69,7 +78,12 @@ public class ResumeExportService {
             "NSimSun",
             "宋体",
             "WenQuanYi Zen Hei",
+            "WenQuanYiZenHei",
             "Noto Sans CJK SC",
+            "Noto Sans CJK JP",
+            "Noto Sans CJK",
+            "NotoSansCJKsc-Regular",
+            "NotoSansCJK",
             "PingFang SC",
             "STHeiti"
     };
@@ -186,22 +200,70 @@ public class ResumeExportService {
         }
 
         for (String path : FONT_TTC_CANDIDATES) {
-            Path p = Path.of(path);
-            if (!Files.isRegularFile(p)) {
+            FontLoadResult fromPath = tryLoadTtc(doc, Path.of(path), fontResources);
+            if (fromPath != null) {
+                return fromPath;
+            }
+        }
+
+        for (String dir : FONT_SEARCH_DIRS) {
+            Path root = Path.of(dir);
+            if (!Files.isDirectory(root)) {
                 continue;
             }
-            try {
-                PDFont font = loadFromTtc(doc, p, fontResources);
-                if (font != null) {
-                    log.info("PDF export using TTC font: {}", path);
-                    return new FontLoadResult(font, true);
+            try (var stream = Files.list(root)) {
+                List<Path> candidates = stream
+                        .filter(Files::isRegularFile)
+                        .filter(p -> {
+                            String name = p.getFileName().toString().toLowerCase();
+                            return name.endsWith(".ttc") || name.endsWith(".ttf") || name.endsWith(".otf");
+                        })
+                        .filter(p -> {
+                            String name = p.getFileName().toString().toLowerCase();
+                            return name.contains("cjk") || name.contains("noto") || name.contains("wqy")
+                                    || name.contains("zenhei") || name.contains("sourcehan");
+                        })
+                        .sorted()
+                        .toList();
+                for (Path p : candidates) {
+                    String name = p.getFileName().toString().toLowerCase();
+                    if (name.endsWith(".ttc")) {
+                        FontLoadResult loaded = tryLoadTtc(doc, p, fontResources);
+                        if (loaded != null) {
+                            return loaded;
+                        }
+                    } else {
+                        try (InputStream in = Files.newInputStream(p)) {
+                            PDFont font = PDType0Font.load(doc, in, true);
+                            log.info("PDF export using scanned font: {}", p);
+                            return new FontLoadResult(font, true);
+                        } catch (Exception e) {
+                            log.debug("Skip font {}: {}", p, e.getMessage());
+                        }
+                    }
                 }
             } catch (Exception e) {
-                log.warn("Failed to load TTC {}: {}", path, e.getMessage());
+                log.debug("Font dir scan failed for {}: {}", dir, e.getMessage());
             }
         }
 
         return new FontLoadResult(new PDType1Font(Standard14Fonts.FontName.HELVETICA), false);
+    }
+
+    private FontLoadResult tryLoadTtc(PDDocument doc, Path path, List<AutoCloseable> fontResources) {
+        if (!Files.isRegularFile(path)) {
+            return null;
+        }
+        try {
+            PDFont font = loadFromTtc(doc, path, fontResources);
+            if (font != null) {
+                log.info("PDF export using TTC font: {}", path);
+                return new FontLoadResult(font, true);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to load TTC {}: {}", path, e.getMessage());
+        }
+        return null;
     }
 
     /**

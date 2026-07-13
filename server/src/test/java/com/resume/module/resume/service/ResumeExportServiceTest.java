@@ -24,6 +24,9 @@ class ResumeExportServiceTest {
         byte[] pdf = service.exportPdf("简历导出测试", content);
         try (PDDocument doc = Loader.loadPDF(pdf)) {
             String text = new PDFTextStripper().getText(doc);
+            boolean hasHan = text.chars().anyMatch(ch -> Character.UnicodeScript.of(ch) == Character.UnicodeScript.HAN);
+            assertTrue(hasHan,
+                    "No CJK characters in PDF — install fonts-noto-cjk / fonts-wqy-zenhei, or embed a font under /fonts/: " + text);
             assertTrue(text.contains("张三"), text);
             assertTrue(text.contains("Chronos"), text);
             assertTrue(text.contains("DONE"), text);
