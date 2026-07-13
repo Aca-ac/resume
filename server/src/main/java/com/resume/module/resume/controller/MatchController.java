@@ -4,6 +4,7 @@ import com.resume.common.Result;
 import com.resume.config.RateLimiter;
 import com.resume.module.resume.dto.MatchAnalysisResultVO;
 import com.resume.module.resume.dto.MatchJdRequest;
+import com.resume.module.resume.dto.MatchJobRequest;
 import com.resume.module.resume.dto.MatchRecordVO;
 import com.resume.module.resume.dto.PageResult;
 import com.resume.module.resume.service.MatchService;
@@ -25,6 +26,14 @@ public class MatchController {
                                          @RequestBody MatchJdRequest body) {
         log.info("接收到匹配请求，userId={}", userId);
         return Result.success(matchService.matchJd(userId, body.getResumeId(), body.getJdText()));
+    }
+
+    @PostMapping("/job")
+    @RateLimiter(key = "match", maxCount = 20, duration = 60)
+    public Result<MatchRecordVO> matchByJobId(@RequestAttribute Long userId,
+                                              @RequestBody MatchJobRequest body) {
+        log.info("接收到选择岗位匹配请求，userId={}", userId);
+        return Result.success(matchService.matchByJobId(userId, body.getResumeId(), body.getJobId()));
     }
 
     @GetMapping("/history")

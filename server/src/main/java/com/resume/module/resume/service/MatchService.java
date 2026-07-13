@@ -16,6 +16,8 @@ import com.resume.module.resume.entity.MatchRecord;
 import com.resume.module.resume.entity.MatchSubDimension;
 import com.resume.module.resume.entity.Resume;
 import com.resume.module.resume.entity.ResumeDetail;
+import com.resume.module.job.entity.TargetJob;
+import com.resume.module.job.mapper.TargetJobMapper;
 import com.resume.module.resume.mapper.MatchAnalysisMapper;
 import com.resume.module.resume.mapper.MatchDimensionMapper;
 import com.resume.module.resume.mapper.MatchRecordMapper;
@@ -61,6 +63,7 @@ public class MatchService {
     private final MatchSubDimensionMapper matchSubDimensionMapper;
     private final ResumeMapper resumeMapper;
     private final ResumeDetailMapper resumeDetailMapper;
+    private final TargetJobMapper targetJobMapper;
     private final ObjectMapper objectMapper;
     private final RestClient restClient = RestClient.create();
     private final ResourceLoader resourceLoader;
@@ -112,13 +115,82 @@ public class MatchService {
                 ? defaultSuggestions(parsed.analysis()) : parsed.suggestions();
 
         MatchAnalysis analysis = persistAnalysis(
-                userId, resumeId, jdText.trim(), radarScore, matchLevel,
+                userId, resumeId, null, jdText.trim(), radarScore, matchLevel,
                 parsed.analysis(), summary, highlights, weaknesses, suggestions, dimensions
         );
 
         MatchRecord record = new MatchRecord();
         record.setUserId(userId);
         record.setResumeId(resumeId);
+        record.setJdText(jdText.trim());
+        record.setMatchScore(radarScore);
+        record.setSummaryScore(parsed.summaryScore());
+        record.setEducationScore(parsed.educationScore());
+        record.setExperienceScore(parsed.experienceScore());
+        record.setSkillScore(parsed.skillScore());
+        record.setProjectScore(parsed.projectScore());
+        record.setAnalysisId(analysis.getId());
+        record.setAnalysis(parsed.analysis());
+        record.setCreatedAt(LocalDateTime.now());
+        matchRecordMapper.insert(record);
+        return toVo(record);
+    }
+
+    @Transactional
+    public MatchRecordVO matchByJobId(Long userId, Long resumeId, Long jobId) {
+        if (resumeId == null) {
+            throw new BusinessException(400, "请选择简历");
+        }
+        if (jobId == null) {
+            throw new BusinessException(400, "请选择岗位");
+        }
+
+        Resume resume = resumeMapper.selectById(resumeId);
+        if (resume == null || !resume.getUserId().equals(userId)) {
+            throw new BusinessException(404, "简历不存在");
+        }
+
+        TargetJob job = targetJobMapper.selectById(jobId);
+        if (job == null) {
+            throw new BusinessException(404, "岗位不存在");
+        }
+
+        String jdText = job.getJdContent();
+        if (jdText == null || jdText.isBlank()) {
+            throw new BusinessException(400, "岗位JD内容为空");
+        }
+
+        String resumeContent = buildResumeContent(resumeId);
+        if (resumeContent.isBlank()) {
+            throw new BusinessException(400, "简历内容为空，请先完善简历");
+        }
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new BusinessException(500, "未配置 DASHSCOPE_API_KEY，无法进行匹配分析");
+        }
+
+        String aiRaw = callAi(resumeContent, jdText.trim());
+        ParsedMatch parsed = parseAiResult(aiRaw);
+        Preset preset = resolvePreset(dimensionPreset);
+        List<BuiltDimension> dimensions = buildDimensions(parsed, preset);
+        int radarScore = calculateRadarScore(dimensions);
+        String matchLevel = resolveMatchLevel(radarScore);
+        String summary = buildSummary(parsed);
+        List<String> highlights = parsed.highlights().isEmpty()
+                ? deriveHighlights(dimensions) : parsed.highlights();
+        List<String> weaknesses = parsed.weaknesses().isEmpty()
+                ? deriveWeaknesses(dimensions) : parsed.weaknesses();
+        List<SuggestionVO> suggestions = parsed.suggestions().isEmpty()
+                ? defaultSuggestions(parsed.analysis()) : parsed.suggestions();
+
+        MatchAnalysis analysis = persistAnalysis(
+                userId, resumeId, jobId, jdText.trim(), radarScore, matchLevel,
+                parsed.analysis(), summary, highlights, weaknesses, suggestions, dimensions
+        );
+
+        MatchRecord record = new MatchRecord();
+        record.setUserId(userId);
+        record.setResumeId(resumeId);
+        record.setJobId(jobId);
         record.setJdText(jdText.trim());
         record.setMatchScore(radarScore);
         record.setSummaryScore(parsed.summaryScore());
@@ -158,13 +230,14 @@ public class MatchService {
         return new PageResult<>(records, result.getTotal(), page, size);
     }
 
-    private MatchAnalysis persistAnalysis(Long userId, Long resumeId, String jdText, int matchScore,
+    private MatchAnalysis persistAnalysis(Long userId, Long resumeId, Long jobId, String jdText, int matchScore,
                                           String matchLevel, String analysisText, String summary,
                                           List<String> highlights, List<String> weaknesses,
                                           List<SuggestionVO> suggestions, List<BuiltDimension> dimensions) {
         MatchAnalysis analysis = new MatchAnalysis();
         analysis.setUserId(userId);
         analysis.setResumeId(resumeId);
+        analysis.setJobDescriptionId(jobId);
         analysis.setJdText(jdText);
         analysis.setMatchScore(matchScore);
         analysis.setMatchLevel(matchLevel);
@@ -596,6 +669,7 @@ public class MatchService {
         MatchRecordVO vo = new MatchRecordVO();
         vo.setId(record.getId());
         vo.setResumeId(record.getResumeId());
+        vo.setJobId(record.getJobId());
         vo.setMatchScore(record.getMatchScore());
         vo.setSummaryScore(record.getSummaryScore());
         vo.setEducationScore(record.getEducationScore());
