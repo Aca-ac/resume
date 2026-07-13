@@ -10,6 +10,7 @@ import com.resume.module.resume.dto.ResumeVO;
 import com.resume.module.resume.entity.ResumeDetail;
 import com.resume.module.resume.entity.ResumeFile;
 import com.resume.module.resume.service.ResumeService;
+import com.resume.module.resume.service.TemplateExportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -28,6 +29,7 @@ import java.util.List;
 public class ResumeController {
 
     private final ResumeService resumeService;
+    private final TemplateExportService templateExportService;
 
     @PostMapping
     public Result<ResumeVO> createResume(@RequestAttribute Long userId,
@@ -132,8 +134,21 @@ public class ResumeController {
 
     @GetMapping("/{id}/export/pdf")
     public ResponseEntity<byte[]> exportPdf(@PathVariable Long id,
-                                            @RequestAttribute Long userId) throws IOException {
-        return download(resumeService.exportPdf(userId, id), "resume-" + id + ".pdf", MediaType.APPLICATION_PDF);
+                                            @RequestAttribute Long userId,
+                                            @RequestParam(required = false) Long templateId) throws IOException {
+        byte[] data = templateId != null
+                ? templateExportService.exportPdf(userId, id, templateId)
+                : resumeService.exportPdf(userId, id);
+        return download(data, "resume-" + id + ".pdf", MediaType.APPLICATION_PDF);
+    }
+
+    @GetMapping("/{id}/export/word")
+    public ResponseEntity<byte[]> exportWordByTemplate(@PathVariable Long id,
+                                                       @RequestAttribute Long userId,
+                                                       @RequestParam Long templateId) throws IOException {
+        byte[] data = templateExportService.exportWord(userId, id, templateId);
+        return download(data, "resume-" + id + ".docx",
+                MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
     }
 
     @GetMapping("/{id}/export/docx")

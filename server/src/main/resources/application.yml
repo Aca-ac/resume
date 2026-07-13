@@ -67,6 +67,9 @@ app:
   match:
     # general | technical | management
     dimension-preset: general
+  export:
+    libreoffice-command: ${LIBREOFFICE_COMMAND:soffice}
+    convert-timeout-seconds: 120
 
 management:
   endpoints:
