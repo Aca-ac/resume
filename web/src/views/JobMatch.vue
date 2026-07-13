@@ -126,12 +126,7 @@
           </div>
         </div>
 
-        <!-- 详细分析文本 -->
-        <div class="analysis-content">
-          <pre>{{ matchStore.currentAnalysis.analysis || '暂无详细分析' }}</pre>
-        </div>
-
-        <!-- 优化建议 - 可折叠框 -->
+        <!-- 优化建议 - 可折叠框（已包含详细建议内容） -->
         <div v-if="suggestions.length" class="suggestions-collapse">
           <div class="suggestions-toggle" @click="showSuggestions = !showSuggestions">
             <span class="suggestions-title">
@@ -161,6 +156,11 @@
               </div>
             </div>
           </el-collapse-transition>
+        </div>
+
+        <!-- 如果没有建议，显示占位提示 -->
+        <div v-else class="no-suggestions">
+          <span>暂无优化建议</span>
         </div>
       </div>
 
@@ -681,26 +681,6 @@ onMounted(async () => {
   padding: 4px 12px;
 }
 
-/* 分析文本 */
-.analysis-content {
-  background: #f8fbf9;
-  border-radius: 10px;
-  padding: 16px 20px;
-  border: 1px solid #e8f0ec;
-  max-height: 300px;
-  overflow-y: auto;
-  margin-bottom: 16px;
-}
-
-.analysis-content pre {
-  margin: 0;
-  white-space: pre-wrap;
-  line-height: 1.8;
-  color: #4f6b5d;
-  font-size: 14px;
-  font-family: inherit;
-}
-
 /* ===== 优化建议 - 可折叠框 ===== */
 .suggestions-collapse {
   border: 1px solid #e8f0ec;
@@ -758,6 +738,14 @@ onMounted(async () => {
   font-size: 13px;
   color: #4f6b5d;
   line-height: 1.6;
+}
+
+/* 无建议占位 */
+.no-suggestions {
+  padding: 16px;
+  text-align: center;
+  color: #a0bcae;
+  font-size: 14px;
 }
 
 /* ===== 结果占位 ===== */
@@ -896,9 +884,6 @@ onMounted(async () => {
   }
   .result-full {
     min-height: 300px;
-  }
-  .analysis-content {
-    max-height: 200px;
   }
   .btn-analyze {
     width: 100%;
