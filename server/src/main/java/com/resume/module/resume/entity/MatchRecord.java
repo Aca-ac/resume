@@ -14,6 +14,7 @@ public class MatchRecord {
     private Long id;
     private Long userId;
     private Long resumeId;
+    private Long jobId;
     private String jdText;
     private Integer matchScore;
     private Integer summaryScore;
