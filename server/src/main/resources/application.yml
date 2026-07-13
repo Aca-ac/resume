@@ -41,6 +41,9 @@ app:
     upload-dir: uploads/resumes
     max-file-size: 104857600
     chunk-dir: uploads/resumes/chunks
+    template-dir: uploads/templates
+    export-dir: uploads/exports
+    export-ttl-hours: 24
   cors:
     allowed-origins:
       - http://localhost:5173
