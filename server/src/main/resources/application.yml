@@ -61,9 +61,13 @@ app:
     qwen:
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
       api-key: ${DASHSCOPE_API_KEY:${QWEN_API_KEY:}}
-      model: qwen-plus
+      model: deepseek-v4-flash
       ocr-model: ${QWEN_OCR_MODEL:qwen-vl-ocr}
       workspace-id: ${QWEN_WORKSPACE_ID:}
+    doubao:
+      base-url: https://ark.cn-beijing.volces.com/api/v3
+      api-key: ${ARK_API_KEY:}
+      model: doubao-seed-2-1-pro-260628
   match:
     # general | technical | management
     dimension-preset: general
