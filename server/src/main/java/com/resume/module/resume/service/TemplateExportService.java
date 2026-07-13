@@ -2,22 +2,21 @@ package com.resume.module.resume.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.resume.common.BusinessException;
+import com.resume.module.resume.dto.ExportResultVO;
 import com.resume.module.resume.dto.TemplateRenderData;
 import com.resume.module.resume.entity.Resume;
 import com.resume.module.resume.entity.ResumeDetail;
 import com.resume.module.resume.entity.ResumeTemplate;
 import com.resume.module.resume.mapper.ResumeDetailMapper;
-import com.resume.module.resume.mapper.TemplateMapper;
 import com.resume.user_identify.entity.User;
 import com.resume.user_identify.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
+import java.util.Locale;
 
 @Slf4j
 @Service
@@ -30,20 +29,13 @@ public class TemplateExportService {
     private static final String SECTION_PROJECT = "PROJECT";
     private static final String SECTION_SKILL = "SKILL";
 
-    /** he 的 V11 种子数据对齐；DB 未就绪时作为兜底 */
-    private static final Map<Long, String> FALLBACK_TEMPLATE_PATHS = Map.of(
-            1L, "/templates/resumes/simple/template.docx",
-            2L, "/templates/resumes/professional/template.docx",
-            3L, "/templates/resumes/creative/template.docx",
-            4L, "/templates/resumes/academic/template.docx"
-    );
-
     private final ResumeService resumeService;
-    private final TemplateMapper templateMapper;
+    private final TemplateService templateService;
     private final ResumeDetailMapper resumeDetailMapper;
     private final UserMapper userMapper;
     private final TemplateRenderService templateRenderService;
     private final LibreOfficePdfConverter pdfConverter;
+    private final ExportStorageService exportStorageService;
 
     public byte[] exportWord(Long userId, Long resumeId, Long templateId) throws IOException {
         Resume resume = resumeService.getResume(resumeId, userId);
@@ -58,23 +50,57 @@ public class TemplateExportService {
         return pdfConverter.convertDocxToPdf(docx, resume.getTitle());
     }
 
+    public ExportResultVO createExportJob(Long userId, Long resumeId, Long templateId, String format) throws IOException {
+        if (format == null || format.isBlank()) {
+            throw new BusinessException(400, "请指定导出格式 word 或 pdf");
+        }
+        String normalized = format.trim().toLowerCase(Locale.ROOT);
+        Resume resume = resumeService.getResume(resumeId, userId);
+        ResumeTemplate template = templateService.require(templateId);
+
+        byte[] content;
+        String downloadFilename;
+        if ("pdf".equals(normalized)) {
+            content = exportPdf(userId, resumeId, templateId);
+            downloadFilename = buildFilename(resume.getTitle(), "pdf");
+            normalized = "pdf";
+        } else if ("word".equals(normalized) || "docx".equals(normalized)) {
+            content = exportWord(userId, resumeId, templateId);
+            downloadFilename = buildFilename(resume.getTitle(), "docx");
+            normalized = "word";
+        } else {
+            throw new BusinessException(400, "不支持的导出格式: " + format);
+        }
+
+        ExportStorageService.StoredExport stored = exportStorageService.store(
+                userId, resumeId, templateId, normalized, content, downloadFilename);
+
+        ExportResultVO vo = new ExportResultVO();
+        vo.setExportId(stored.exportId());
+        vo.setResumeId(resumeId);
+        vo.setTemplateId(templateId);
+        vo.setFormat(normalized);
+        vo.setFilename(downloadFilename);
+        vo.setDownloadUrl("/api/v1/resumes/exports/" + stored.exportId() + "/download");
+        vo.setExpiresAt(exportStorageService.formatExpiresAt(stored.expiresAt()));
+        log.info("Export job created exportId={}, resumeId={}, template={}", stored.exportId(), resumeId, template.getName());
+        return vo;
+    }
+
+    public ExportStorageService.StoredExport requireExportFile(Long userId, String exportId) {
+        return exportStorageService.requireOwned(userId, exportId);
+    }
+
+    public byte[] readExportFile(ExportStorageService.StoredExport stored) throws IOException {
+        return exportStorageService.read(stored);
+    }
+
     String resolveTemplatePath(Long templateId) {
-        if (templateId == null) {
-            throw new BusinessException(400, "请指定 templateId");
+        ResumeTemplate template = templateService.require(templateId);
+        if (template.getTemplatePath() == null || template.getTemplatePath().isBlank()) {
+            throw new BusinessException(500, "模板未配置 template_path，templateId=" + templateId);
         }
-        try {
-            ResumeTemplate template = templateMapper.selectById(templateId);
-            if (template != null && template.getTemplatePath() != null && !template.getTemplatePath().isBlank()) {
-                return template.getTemplatePath();
-            }
-        } catch (DataAccessException e) {
-            log.debug("resume_templates not available yet, using fallback paths: {}", e.getMessage());
-        }
-        String fallback = FALLBACK_TEMPLATE_PATHS.get(templateId);
-        if (fallback == null) {
-            throw new BusinessException(404, "模板不存在，templateId=" + templateId);
-        }
-        return fallback;
+        return template.getTemplatePath();
     }
 
     private TemplateRenderData buildRenderData(Long userId, Resume resume) {
@@ -96,6 +122,11 @@ public class TemplateExportService {
                 .project(sectionContent(details, SECTION_PROJECT))
                 .skill(sectionContent(details, SECTION_SKILL))
                 .build();
+    }
+
+    private String buildFilename(String title, String ext) {
+        String base = title == null || title.isBlank() ? "resume" : title.trim();
+        return base.replaceAll("[\\\\/:*?\"<>|]", "_") + "." + ext;
     }
 
     private String pickName(User user) {

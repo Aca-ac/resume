@@ -3,12 +3,14 @@ package com.resume.module.resume.controller;
 import com.resume.common.Result;
 import com.resume.config.RateLimiter;
 import com.resume.module.resume.dto.ChunkUploadVO;
+import com.resume.module.resume.dto.ExportResultVO;
 import com.resume.module.resume.dto.ImportResultVO;
 import com.resume.module.resume.dto.OptimizeRequest;
 import com.resume.module.resume.dto.ResumeSaveRequest;
 import com.resume.module.resume.dto.ResumeVO;
 import com.resume.module.resume.entity.ResumeDetail;
 import com.resume.module.resume.entity.ResumeFile;
+import com.resume.module.resume.service.ExportStorageService;
 import com.resume.module.resume.service.ResumeService;
 import com.resume.module.resume.service.TemplateExportService;
 import lombok.RequiredArgsConstructor;
@@ -149,6 +151,28 @@ public class ResumeController {
         byte[] data = templateExportService.exportWord(userId, id, templateId);
         return download(data, "resume-" + id + ".docx",
                 MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
+    }
+
+    @PostMapping("/{id}/export")
+    public Result<ExportResultVO> createExportJob(@PathVariable Long id,
+                                                  @RequestAttribute Long userId,
+                                                  @RequestParam Long templateId,
+                                                  @RequestParam String format) throws IOException {
+        return Result.success(templateExportService.createExportJob(userId, id, templateId, format));
+    }
+
+    @GetMapping("/exports/{exportId}/download")
+    public ResponseEntity<byte[]> downloadExport(@PathVariable String exportId,
+                                                 @RequestAttribute Long userId) throws IOException {
+        ExportStorageService.StoredExport stored = templateExportService.requireExportFile(userId, exportId);
+        byte[] data = templateExportService.readExportFile(stored);
+        String filename = stored.filename() != null && !stored.filename().isBlank()
+                ? stored.filename()
+                : "resume-" + exportId + ("pdf".equals(stored.format()) ? ".pdf" : ".docx");
+        MediaType mediaType = "pdf".equals(stored.format())
+                ? MediaType.APPLICATION_PDF
+                : MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        return download(data, filename, mediaType);
     }
 
     @GetMapping("/{id}/export/docx")

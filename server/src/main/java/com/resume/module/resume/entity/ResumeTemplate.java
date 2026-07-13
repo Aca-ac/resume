@@ -8,7 +8,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 简历模板表实体，表结构由 he 的 V11 迁移定义；tian 侧只读使用 template_path。
+ * 简历模板表实体（he：V11 迁移与 CRUD；tian 渲染侧通过 TemplateService 读取 template_path）。
  */
 @Data
 @TableName("resume_templates")

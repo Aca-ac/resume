@@ -70,6 +70,8 @@ app:
   export:
     libreoffice-command: ${LIBREOFFICE_COMMAND:soffice}
     convert-timeout-seconds: 120
+    export-dir: uploads/exports
+    file-ttl-hours: 24
 
 management:
   endpoints:

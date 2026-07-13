@@ -54,4 +54,18 @@ class TemplateExportIntegrationTest {
         org.junit.jupiter.api.Assertions.assertTrue(pdf.length > 100, "pdf should not be empty");
         org.junit.jupiter.api.Assertions.assertTrue(new String(pdf, 0, Math.min(5, pdf.length)).startsWith("%PDF"));
     }
+
+    @Test
+    void createExportJobReturnsDownloadUrl() throws Exception {
+        try {
+            var result = templateExportService.createExportJob(TEST_USER_ID, TEST_RESUME_ID, TEST_TEMPLATE_ID, "word");
+            org.junit.jupiter.api.Assertions.assertNotNull(result.getExportId());
+            org.junit.jupiter.api.Assertions.assertTrue(result.getDownloadUrl().contains(result.getExportId()));
+            byte[] file = templateExportService.readExportFile(
+                    templateExportService.requireExportFile(TEST_USER_ID, result.getExportId()));
+            org.junit.jupiter.api.Assertions.assertTrue(file.length > 100);
+        } catch (BusinessException | org.springframework.dao.DataAccessException e) {
+            Assumptions.assumeTrue(false, "Skip: test DB has no resume/template seed — " + e.getMessage());
+        }
+    }
 }
