@@ -46,7 +46,7 @@ app:
       - http://localhost:5173
       - http://127.0.0.1:5173
   jwt:
-    secret: ${JWT_SECRET}
+    secret: ${JWT_SECRET:dev-only-secret-must-be-at-least-32-chars!!}
     access-expiration-minutes: 60
     refresh-expiration-days: 7
   rate-limit:
@@ -84,8 +84,8 @@ email:
   smtp:
     host: smtp.qq.com
     port: 587
-    username: ${EMAIL_USERNAME}
-    password: ${EMAIL_PASSWORD}
+    username: ${EMAIL_USERNAME:}
+    password: ${EMAIL_PASSWORD:}
     protocol: smtp
     timeout: 5000
     properties:
