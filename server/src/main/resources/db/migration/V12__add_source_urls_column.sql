@@ -1,0 +1,1 @@
+ALTER TABLE target_jobs ADD COLUMN source_urls TEXT NULL COMMENT '来源链接（JSON数组格式，存储AI搜索时获取的来源URL列表）' AFTER original_job_id;

@@ -6,18 +6,13 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("target_jobs")
-public class TargetJob {
+@TableName("job_comments")
+public class JobComment {
     @TableId(type = IdType.AUTO)
     private Long id;
+    private Long jobId;
     private Long userId;
-    private String jobName;
-    private String jdContent;
-    private Integer source;
-    private Long originalJobId;
-    private String sourceUrls;
+    private String content;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
-    @TableField(fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updatedAt;
 }
