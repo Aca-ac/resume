@@ -39,9 +39,9 @@ public class TemplateExportService {
 
     public byte[] exportWord(Long userId, Long resumeId, Long templateId) throws IOException {
         Resume resume = resumeService.getResume(resumeId, userId);
-        String templatePath = resolveTemplatePath(templateId);
+        ResumeTemplate template = templateService.require(templateId);
         TemplateRenderData data = buildRenderData(userId, resume);
-        return templateRenderService.renderWord(templatePath, data);
+        return templateRenderService.renderWord(resolveTemplatePath(template), data);
     }
 
     public byte[] exportPdf(Long userId, Long resumeId, Long templateId) throws IOException {
@@ -96,9 +96,12 @@ public class TemplateExportService {
     }
 
     String resolveTemplatePath(Long templateId) {
-        ResumeTemplate template = templateService.require(templateId);
+        return resolveTemplatePath(templateService.require(templateId));
+    }
+
+    String resolveTemplatePath(ResumeTemplate template) {
         if (template.getTemplatePath() == null || template.getTemplatePath().isBlank()) {
-            throw new BusinessException(500, "模板未配置 template_path，templateId=" + templateId);
+            throw new BusinessException(500, "模板未配置 template_path，templateId=" + template.getId());
         }
         return template.getTemplatePath();
     }
@@ -112,15 +115,14 @@ public class TemplateExportService {
         );
 
         return TemplateRenderData.builder()
-                .title(resume.getTitle())
                 .name(pickName(user))
                 .phone(user == null ? "" : nullToEmpty(user.getPhone()))
                 .email(user == null ? "" : nullToEmpty(user.getEmail()))
-                .summary(sectionContent(details, SECTION_SUMMARY))
                 .education(sectionContent(details, SECTION_EDUCATION))
                 .workExperience(sectionContent(details, SECTION_WORK))
                 .project(sectionContent(details, SECTION_PROJECT))
                 .skill(sectionContent(details, SECTION_SKILL))
+                .summary(sectionContent(details, SECTION_SUMMARY))
                 .build();
     }
 

@@ -43,15 +43,14 @@ public class TemplateRenderService {
 
     private Map<String, Object> toRenderMap(TemplateRenderData data) {
         Map<String, Object> map = new HashMap<>();
-        map.put("title", safe(data.getTitle()));
         map.put("name", safe(data.getName()));
         map.put("phone", safe(data.getPhone()));
         map.put("email", safe(data.getEmail()));
-        map.put("summary", safe(data.getSummary()));
         map.put("education", safe(data.getEducation()));
         map.put("workExperience", safe(data.getWorkExperience()));
         map.put("project", safe(data.getProject()));
         map.put("skill", safe(data.getSkill()));
+        map.put("summary", safe(data.getSummary()));
         return map;
     }
 

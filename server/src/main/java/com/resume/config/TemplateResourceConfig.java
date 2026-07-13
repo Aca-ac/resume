@@ -5,7 +5,7 @@ import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
- * 模板预览图与 classpath 模板静态资源（preview_url 如 /templates/previews/simple.png）。
+ * 模板预览图与 classpath 模板静态资源（preview_url 如 /templates/resumes/simple/preview.png）。
  */
 @Configuration
 public class TemplateResourceConfig implements WebMvcConfigurer {
