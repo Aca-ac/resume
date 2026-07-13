@@ -50,6 +50,9 @@ jobs:
       MYSQL_USER: root
       MYSQL_PASSWORD: root
       REDIS_PASSWORD: ""
+      EMAIL_USERNAME: ci@example.com
+      EMAIL_PASSWORD: ci-placeholder
+      JWT_SECRET: ci-only-secret-must-be-at-least-32-chars!!
 
     steps:
       - uses: actions/checkout@v4
