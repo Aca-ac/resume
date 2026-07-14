@@ -26,6 +26,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+/** Resume CRUD / import / export APIs (SUMMARY body via ResumeService). */
 @RestController
 @RequestMapping("/api/v1/resumes")
 @RequiredArgsConstructor

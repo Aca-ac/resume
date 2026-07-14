@@ -28,6 +28,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
+/** Resume domain service — body read/write goes through ResumeSummaryStore. */
 @Slf4j
 @Service
 @RequiredArgsConstructor

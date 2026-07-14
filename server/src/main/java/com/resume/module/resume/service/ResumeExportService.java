@@ -24,6 +24,7 @@ import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
 
+/** Plain Word/PDF export — multi-page PDF; prefers Windows CJK TTF fonts. */
 @Slf4j
 @Service
 public class ResumeExportService {

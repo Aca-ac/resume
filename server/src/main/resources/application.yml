@@ -1,3 +1,4 @@
+# Defaults allow local boot without exporting MYSQL_* first.
 spring:
   application:
     name: resume-assistant

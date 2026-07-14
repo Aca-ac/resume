@@ -136,3 +136,4 @@ echo.
 echo 若后端窗口立刻报错退出，请把该窗口完整日志贴给我。
 echo.
 pause >nul
+REM tip refresh: resume persist + export startup helpers

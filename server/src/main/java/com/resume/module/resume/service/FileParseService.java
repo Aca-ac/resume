@@ -15,6 +15,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+/** Parse uploaded resume files; sanitize text before SUMMARY store. */
 @Service
 public class FileParseService {
 
