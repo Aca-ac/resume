@@ -6,7 +6,14 @@ import lombok.Data;
 public class MatchRecordVO {
     private Long id;
     private Long resumeId;
+    private Long jobId;
     private Integer matchScore;
+    private Integer summaryScore;
+    private Integer educationScore;
+    private Integer experienceScore;
+    private Integer skillScore;
+    private Integer projectScore;
+    private Long analysisId;
     private String analysis;
     private String createdAt;
 }

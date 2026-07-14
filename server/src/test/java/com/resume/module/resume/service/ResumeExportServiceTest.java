@@ -7,9 +7,25 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/** PDF export: multi-page + CJK / special-char mapping. */
 class ResumeExportServiceTest {
 
     private final ResumeExportService service = new ResumeExportService();
+
+    @Test
+    void manyLinesShouldCreateMultiplePages() throws Exception {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 1; i <= 120; i++) {
+            sb.append("Line ").append(i).append(": multi-page export test content ABCDEFG").append('\n');
+        }
+        byte[] pdf = service.exportPdf("Multi page resume", sb.toString());
+        try (PDDocument doc = Loader.loadPDF(pdf)) {
+            assertTrue(doc.getNumberOfPages() >= 2, "expected multi-page, got " + doc.getNumberOfPages());
+            String text = new PDFTextStripper().getText(doc);
+            assertTrue(text.contains("Line 1:"));
+            assertTrue(text.contains("Line 120:"));
+        }
+    }
 
     @Test
     void exportPdf_keepsChineseAndMapsSpecialChars() throws Exception {
@@ -33,7 +49,6 @@ class ResumeExportServiceTest {
             assertTrue(text.contains("智能简历") || text.contains("智能"), text);
             assertTrue(text.contains("->") || text.contains("DONE"), text);
             assertTrue(text.contains("青春") || text.contains("春"), "radical should map: " + text);
-            // specials mapped to ASCII-safe forms, not left as raw problematic glyphs
             assertTrue(text.contains("*") || text.contains("重点"), text);
         }
     }

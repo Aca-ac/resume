@@ -1,5 +1,6 @@
 package com.resume.module.resume.service;
 
+import com.resume.common.TextSanitizer;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -14,6 +15,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+/** Parse uploaded resume files; sanitize text before SUMMARY store. */
 @Service
 public class FileParseService {
 
@@ -42,7 +44,7 @@ public class FileParseService {
 
     private String parsePdf(Path path) throws IOException {
         try (PDDocument doc = Loader.loadPDF(path.toFile())) {
-            return new PDFTextStripper().getText(doc).trim();
+            return TextSanitizer.forParsedText(new PDFTextStripper().getText(doc));
         }
     }
 
@@ -50,7 +52,7 @@ public class FileParseService {
         try (InputStream in = Files.newInputStream(path);
              XWPFDocument doc = new XWPFDocument(in);
              XWPFWordExtractor extractor = new XWPFWordExtractor(doc)) {
-            return extractor.getText().trim();
+            return TextSanitizer.forParsedText(extractor.getText());
         }
     }
 
@@ -58,7 +60,7 @@ public class FileParseService {
         try (InputStream in = Files.newInputStream(path);
              HWPFDocument doc = new HWPFDocument(in);
              WordExtractor extractor = new WordExtractor(doc)) {
-            return extractor.getText().trim();
+            return TextSanitizer.forParsedText(extractor.getText());
         }
     }
 }

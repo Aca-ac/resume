@@ -45,59 +45,141 @@ const router = createRouter({
           component: () => import("@/views/Dashboard.vue"),
           meta: { public: true }
         },
-        // 简历相关 - 需要登录
+
+        // ===== 社区岗位（公开，无需登录）- 放在 community 路径下 =====
+        {
+          path: "community",
+          component: () => import("@/views/job/CommunityJobs.vue"),
+          meta: {
+            public: true,
+            title: '岗位社区'
+          }
+        },
+        {
+          path: "community/jobs/:id",
+          component: () => import("@/views/job/CommunityJobDetail.vue"),
+          meta: {
+            public: true,
+            title: '岗位详情'
+          }
+        },
+
+        // ===== 我的岗位管理（需要登录） =====
+        {
+          path: "jobs",
+          component: () => import("@/views/job/JobList.vue"),
+          meta: { requiresAuth: true, title: '我的岗位' }
+        },
+        {
+          path: "jobs/create",
+          component: () => import("@/views/job/JobCreate.vue"),
+          meta: { requiresAuth: true, title: '创建岗位' }
+        },
+        {
+          path: "jobs/:id",
+          component: () => import("@/views/job/JobDetails.vue"),
+          meta: { requiresAuth: true, title: '岗位详情' }
+        },
+        {
+          path: "jobs/search",
+          component: () => import("@/views/job/JobSearch.vue"),
+          meta: { requiresAuth: true, title: 'AI搜索岗位' }
+        },
+        {
+          path: "jobs/:id/edit",
+          component: () => import("@/views/job/JobEdit.vue"),
+          meta: { requiresAuth: true, title: '编辑岗位' }
+        },
+
+        // ===== 简历相关（需要登录） =====
+        // 简历列表
         {
           path: "resumes",
           component: () => import("@/views/ResumeList.vue"),
-          meta: { requiresAuth: true }
+          meta: { requiresAuth: true, title: '我的简历' }
         },
-        {
-          path: "resumes/import",
-          component: () => import("@/views/ResumeImport.vue"),
-          meta: { requiresAuth: true }
-        },
+        // 新建简历（使用统一编辑器）
         {
           path: "resumes/new",
-          component: () => import("@/views/ResumeCreate.vue"),
-          meta: { requiresAuth: true }
+          component: () => import("@/views/ResumeEditor.vue"),
+          meta: { requiresAuth: true, title: '新建简历' }
         },
+        // 编辑简历（使用统一编辑器）
         {
           path: "resumes/:id/edit",
           component: () => import("@/views/ResumeEditor.vue"),
-          meta: { requiresAuth: true }
+          meta: { requiresAuth: true, title: '编辑简历' }
         },
+        // 导入简历
+        {
+          path: "resumes/import",
+          component: () => import("@/views/ResumeImport.vue"),
+          meta: { requiresAuth: true, title: '导入简历' }
+        },
+        // AI 优化简历
         {
           path: "resumes/:id/optimize",
           component: () => import("@/views/ResumeOptimize.vue"),
-          meta: { requiresAuth: true }
+          meta: { requiresAuth: true, title: 'AI优化简历' }
         },
-        // 匹配
+
+        // ===== 匹配 =====
         {
           path: "match",
           component: () => import("@/views/JobMatch.vue"),
-          meta: { requiresAuth: true }
+          meta: { requiresAuth: true, title: '岗位匹配' }
         },
-        // 面试
+
+        // ===== 面试 =====
         {
           path: "interview/start",
           component: () => import("@/views/InterviewStart.vue"),
-          meta: { requiresAuth: true }
+          meta: { requiresAuth: true, title: '开始面试' }
         },
         {
           path: "interview/:sessionId/chat",
           component: () => import("@/views/InterviewChat.vue"),
-          meta: { requiresAuth: true }
+          meta: { requiresAuth: true, title: '模拟面试' }
         },
         {
           path: "interview/:sessionId/report",
           component: () => import("@/views/InterviewReport.vue"),
-          meta: { requiresAuth: true }
+          meta: { requiresAuth: true, title: '面试报告' }
         },
-        // 个人中心
+
+        // ===== 个人中心 =====
         {
           path: "profile",
           component: () => import("@/views/Profile.vue"),
-          meta: { requiresAuth: true }
+          meta: { requiresAuth: true, title: '个人中心' }
+        }
+      ]
+    },
+
+    // ===== 独立的模板相关路由（使用 AppLayout 布局） =====
+    // 注意：这些路由在 AppLayout 的 children 之外，所以需要单独指定布局
+    // 或者可以将它们移到 AppLayout 的 children 中
+    {
+      path: "/templates",
+      component: () => import("@/components/AppLayout.vue"),
+      children: [
+        {
+          path: "",
+          name: "TemplateGallery",
+          component: () => import("@/views/TemplateGallery.vue"),
+          meta: { requiresAuth: true, title: '模板广场' }
+        }
+      ]
+    },
+    {
+      path: "/resume/preview",
+      component: () => import("@/components/AppLayout.vue"),
+      children: [
+        {
+          path: "",
+          name: "TemplatePreview",
+          component: () => import("@/views/TemplatePreview.vue"),
+          meta: { requiresAuth: true, title: '模板预览' }
         }
       ]
     },
@@ -125,7 +207,7 @@ router.beforeEach(async (to, from, next) => {
     return next('/dashboard');
   }
 
-  // 2. 公开页面直接放行（包括 Dashboard）
+  // 2. 公开页面直接放行（包括 Dashboard 和社区岗位）
   if (to.meta.public) {
     return next();
   }
@@ -205,4 +287,3 @@ router.onError((error) => {
 });
 
 export default router;
-

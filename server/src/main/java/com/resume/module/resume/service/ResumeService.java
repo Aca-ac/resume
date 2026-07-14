@@ -2,6 +2,7 @@ package com.resume.module.resume.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.resume.common.BusinessException;
+import com.resume.common.TextSanitizer;
 import com.resume.config.StorageProperties;
 import com.resume.module.resume.dto.ChunkUploadVO;
 import com.resume.module.resume.dto.ImportResultVO;
@@ -27,6 +28,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
+/** Resume domain service — body read/write goes through ResumeSummaryStore. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -35,7 +37,6 @@ public class ResumeService {
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final String SOURCE_MANUAL = "MANUAL";
     private static final String SOURCE_IMPORT = "IMPORT";
-    private static final String SECTION_SUMMARY = "SUMMARY";
 
     private final ResumeMapper resumeMapper;
     private final ResumeDetailMapper resumeDetailMapper;
@@ -47,9 +48,12 @@ public class ResumeService {
     private final ChunkUploadService chunkUploadService;
     private final StorageProperties storageProperties;
     private final ResumeOptimizeService optimizeService;
+    private final ResumePhotoService resumePhotoService;
+    private final ResumeSummaryStore summaryStore;
 
     // ========== 简历 CRUD（正文存 resume_details.SUMMARY）==========
 
+    @Transactional
     public ResumeVO createResume(Long userId, String title) {
         Resume resume = new Resume();
         resume.setUserId(userId);
@@ -57,10 +61,11 @@ public class ResumeService {
         resume.setSourceType(SOURCE_MANUAL);
         resume.setVersion(1);
         resumeMapper.insert(resume);
-        saveSummaryContent(resume.getId(), "");
+        summaryStore.save(resume.getId(), "");
         return toVO(resume, "");
     }
 
+    @Transactional
     public ResumeVO createResume(Long userId, ResumeSaveRequest req) {
         Resume resume = new Resume();
         resume.setUserId(userId);
@@ -69,13 +74,13 @@ public class ResumeService {
         resume.setVersion(1);
         resumeMapper.insert(resume);
         String content = defaultContent(req.getContent());
-        saveSummaryContent(resume.getId(), content);
-        return toVO(resume, content);
+        summaryStore.save(resume.getId(), content);
+        return toVO(resume, summaryStore.load(resume.getId()));
     }
 
     public ResumeVO getResumeVo(Long id, Long userId) {
         Resume resume = getResume(id, userId);
-        return toVO(resume, loadSummaryContent(id));
+        return toVO(resume, summaryStore.load(id));
     }
 
     public Resume getResume(Long id, Long userId) {
@@ -101,27 +106,44 @@ public class ResumeService {
         resumeMapper.updateById(resume);
     }
 
+    /**
+     * 更新简历标题 / 正文。正文写入 resume_details.SUMMARY，是编辑页「保存修改」的唯一更新入口。
+     */
+    @Transactional
     public ResumeVO updateResume(Long id, Long userId, ResumeSaveRequest req) {
-        Resume resume = getResume(id, userId);
-        if (req.getTitle() != null) {
-            resume.setTitle(req.getTitle());
+        if (req == null) {
+            throw new BusinessException(400, "请求体不能为空");
         }
+        Resume resume = getResume(id, userId);
+        boolean touched = false;
+        if (req.getTitle() != null) {
+            resume.setTitle(req.getTitle().isBlank() ? "未命名简历" : req.getTitle().trim());
+            touched = true;
+        }
+        // content 允许空字符串：用户清空正文也算一次有效更新
         if (req.getContent() != null) {
-            saveSummaryContent(id, req.getContent());
+            summaryStore.save(id, req.getContent());
+            touched = true;
+        }
+        if (!touched) {
+            throw new BusinessException(400, "请提供 title 或 content 以更新简历");
         }
         resume.setVersion(resume.getVersion() == null ? 1 : resume.getVersion() + 1);
         resumeMapper.updateById(resume);
-        return toVO(resume, loadSummaryContent(id));
+        String saved = summaryStore.load(id);
+        log.info("Resume updated id={}, version={}, contentChars={}", id, resume.getVersion(), saved.length());
+        return toVO(resume, saved);
     }
 
     @Transactional
     public void deleteResume(Long id, Long userId) {
-        getResume(id, userId);
+        Resume resume = getResume(id, userId);
         List<ResumeFile> files = resumeFileMapper.selectList(
                 new LambdaQueryWrapper<ResumeFile>().eq(ResumeFile::getResumeId, id));
         for (ResumeFile file : files) {
             deletePhysicalFile(file.getFilePath());
         }
+        resumePhotoService.deletePhotoFile(resume.getPhotoPath());
         resumeDetailMapper.delete(new LambdaQueryWrapper<ResumeDetail>().eq(ResumeDetail::getResumeId, id));
         resumeFileMapper.delete(new LambdaQueryWrapper<ResumeFile>().eq(ResumeFile::getResumeId, id));
         resumeMapper.deleteById(id);
@@ -160,7 +182,7 @@ public class ResumeService {
         if (resume == null || !resume.getUserId().equals(userId)) {
             throw new BusinessException(403, "无权访问");
         }
-        detail.setContent(content);
+        detail.setContent(TextSanitizer.forStoredContent(content));
         resumeDetailMapper.updateById(detail);
     }
 
@@ -179,6 +201,7 @@ public class ResumeService {
 
     // ========== 导入 / 分片 / 导出 ==========
 
+    @Transactional
     public ImportResultVO importFile(Long userId, MultipartFile file) throws IOException {
         validateFile(file);
         String fileType = fileParseService.detectType(file.getOriginalFilename());
@@ -199,6 +222,7 @@ public class ResumeService {
         return buildImportResult(userId, stored, fileType);
     }
 
+    @Transactional
     public ImportResultVO mergeChunks(Long userId, String uploadId, String filename, int totalChunks) throws IOException {
         FileStorageService.StoredFile stored = chunkUploadService.merge(uploadId, filename, totalChunks);
         String fileType = fileParseService.detectType(filename);
@@ -221,27 +245,31 @@ public class ResumeService {
 
     public byte[] exportPdf(Long userId, Long id) throws IOException {
         Resume resume = getResume(id, userId);
-        return exportService.exportPdf(resume.getTitle(), loadSummaryContent(id));
+        return exportService.exportPdf(resume.getTitle(), loadExportableContent(id));
     }
 
     public byte[] exportDocx(Long userId, Long id) throws IOException {
         Resume resume = getResume(id, userId);
-        return exportService.exportDocx(resume.getTitle(), loadSummaryContent(id));
+        return exportService.exportDocx(resume.getTitle(), loadExportableContent(id));
     }
 
     public byte[] exportText(Long userId, Long id) {
         Resume resume = getResume(id, userId);
-        return exportService.exportText(resume.getTitle(), loadSummaryContent(id));
+        return exportService.exportText(resume.getTitle(), loadExportableContent(id));
     }
 
     /**
-     * AI 按目标职位优化简历正文；不覆盖原简历，仅返回优化结果供前端预览。
+     * AI 按目标职位优化简历正文，并将结果写回 SUMMARY（前端可继续编辑）。
      */
+    @Transactional
     public ResumeVO optimizeResume(Long userId, Long id, String targetRole) {
         Resume resume = getResume(id, userId);
-        String original = loadSummaryContent(id);
+        String original = summaryStore.load(id);
         String optimized = optimizeService.optimize(original, targetRole);
-        return toVO(resume, optimized);
+        summaryStore.save(id, optimized);
+        resume.setVersion(resume.getVersion() == null ? 1 : resume.getVersion() + 1);
+        resumeMapper.updateById(resume);
+        return toVO(resume, summaryStore.load(id));
     }
 
     // ========== 文件上传与 OCR ==========
@@ -262,6 +290,7 @@ public class ResumeService {
         }
     }
 
+    @Transactional
     public ResumeFile extractFileText(Long fileId, Long userId) {
         ResumeFile resumeFile = requireOwnedFile(userId, fileId);
         try {
@@ -277,6 +306,7 @@ public class ResumeService {
         }
     }
 
+    @Transactional
     public ResumeFile ocrImage(Long fileId, Long userId) {
         ResumeFile resumeFile = requireOwnedFile(userId, fileId);
         if (!isImage(resumeFile.getFileType())) {
@@ -323,13 +353,13 @@ public class ResumeService {
         resumeMapper.insert(resume);
 
         String content = text.isBlank() ? "（导入内容为空，请手动编辑或重新 OCR）" : text;
-        saveSummaryContent(resume.getId(), content);
+        summaryStore.save(resume.getId(), content);
         ResumeFile record = saveFileRecord(userId, resume.getId(), stored, fileType, text, parseStatus);
 
         ImportResultVO vo = new ImportResultVO();
         vo.setResumeId(resume.getId());
         vo.setTitle(resume.getTitle());
-        vo.setContent(content);
+        vo.setContent(summaryStore.load(resume.getId()));
         vo.setFileId(record.getId());
         vo.setFileType(fileType);
         vo.setParseStatus(parseStatus);
@@ -356,46 +386,55 @@ public class ResumeService {
         return Optional.ofNullable(hit);
     }
 
-    private String loadSummaryContent(Long resumeId) {
-        ResumeDetail detail = resumeDetailMapper.selectOne(new LambdaQueryWrapper<ResumeDetail>()
+    private String loadExportableContent(Long resumeId) {
+        // 与编辑器同一权威 SUMMARY，避免「缩短正文后导出仍用旧长文」
+        String summary = TextSanitizer.forStoredContent(summaryStore.load(resumeId));
+
+        List<ResumeDetail> details = resumeDetailMapper.selectList(new LambdaQueryWrapper<ResumeDetail>()
                 .eq(ResumeDetail::getResumeId, resumeId)
-                .eq(ResumeDetail::getSectionType, SECTION_SUMMARY)
-                .last("LIMIT 1"));
-        return detail == null || detail.getContent() == null ? "" : detail.getContent();
+                .orderByAsc(ResumeDetail::getSortOrder)
+                .orderByAsc(ResumeDetail::getId));
+
+        StringBuilder extras = new StringBuilder();
+        for (ResumeDetail detail : details) {
+            if (ResumeSummaryStore.SECTION_SUMMARY.equalsIgnoreCase(detail.getSectionType())) {
+                continue;
+            }
+            String text = TextSanitizer.forStoredContent(detail.getContent());
+            if (text.isBlank()) {
+                continue;
+            }
+            if (!extras.isEmpty()) {
+                extras.append("\n\n");
+            }
+            if (detail.getSectionName() != null && !detail.getSectionName().isBlank()) {
+                extras.append("【").append(detail.getSectionName()).append("】\n");
+            }
+            extras.append(text);
+        }
+
+        if (summary.isBlank()) {
+            return extras.toString();
+        }
+        if (extras.isEmpty() || summary.contains(extras.toString())) {
+            return summary;
+        }
+        return summary + "\n\n" + extras;
     }
 
     private String previewSummary(Long resumeId) {
-        String full = loadSummaryContent(resumeId);
+        String full = summaryStore.load(resumeId);
         if (full.length() <= 200) {
             return full;
         }
         return full.substring(0, 200) + "...";
     }
 
-    private void saveSummaryContent(Long resumeId, String content) {
-        ResumeDetail existing = resumeDetailMapper.selectOne(new LambdaQueryWrapper<ResumeDetail>()
-                .eq(ResumeDetail::getResumeId, resumeId)
-                .eq(ResumeDetail::getSectionType, SECTION_SUMMARY)
-                .last("LIMIT 1"));
-        if (existing == null) {
-            ResumeDetail detail = new ResumeDetail();
-            detail.setResumeId(resumeId);
-            detail.setSectionType(SECTION_SUMMARY);
-            detail.setSectionName("正文");
-            detail.setContent(content == null ? "" : content);
-            detail.setSortOrder(0);
-            resumeDetailMapper.insert(detail);
-        } else {
-            existing.setContent(content == null ? "" : content);
-            resumeDetailMapper.updateById(existing);
-        }
-    }
-
     private void syncSummaryFromFile(ResumeFile file, String text) {
         if (file.getResumeId() == null || text == null || text.isBlank()) {
             return;
         }
-        saveSummaryContent(file.getResumeId(), text);
+        summaryStore.save(file.getResumeId(), text);
         Resume resume = resumeMapper.selectById(file.getResumeId());
         if (resume != null) {
             resume.setVersion(resume.getVersion() == null ? 1 : resume.getVersion() + 1);
@@ -462,6 +501,7 @@ public class ResumeService {
         vo.setTitle(resume.getTitle());
         vo.setSourceType(resume.getSourceType() == null ? SOURCE_MANUAL : resume.getSourceType());
         vo.setContent(content);
+        vo.setPhotoUrl(ResumePhotoService.photoUrl(resume.getId(), resume.getPhotoPath()));
         vo.setUpdatedAt(resume.getUpdatedAt() == null ? null : resume.getUpdatedAt().format(FMT));
         return vo;
     }

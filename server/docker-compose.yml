@@ -5,17 +5,19 @@ services:
     image: mysql:8.0
     container_name: resume-mysql
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      MYSQL_ROOT_PASSWORD: root123
-      MYSQL_DATABASE: resume_assistant
-      MYSQL_USER: resume
-      MYSQL_PASSWORD: resume123
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "3307:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot123"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -40,17 +42,20 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080"
+    env_file:
+      - .env
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      MYSQL_DATABASE: resume_assistant
-      MYSQL_USER: resume
-      MYSQL_PASSWORD: resume123
-      # MySQL 容器名是 mysql，所以连接地址用 mysql:3306
-      # Redis 容器名是 redis
-      REDIS_PASSWORD: ""
-      JWT_SECRET: "my-secure-jwt-secret-key-at-least-32-chars!!"
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
       DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY}
-      # APP_CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000"
+      QWEN_API_KEY: ${QWEN_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      EMAIL_USERNAME: ${EMAIL_USERNAME}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD}
     depends_on:
       mysql:
         condition: service_healthy

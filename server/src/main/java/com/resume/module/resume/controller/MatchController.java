@@ -2,16 +2,20 @@ package com.resume.module.resume.controller;
 
 import com.resume.common.Result;
 import com.resume.config.RateLimiter;
+import com.resume.module.resume.dto.MatchAnalysisResultVO;
 import com.resume.module.resume.dto.MatchJdRequest;
+import com.resume.module.resume.dto.MatchJobRequest;
 import com.resume.module.resume.dto.MatchRecordVO;
 import com.resume.module.resume.dto.PageResult;
 import com.resume.module.resume.service.MatchService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/match")
 @RequiredArgsConstructor
+@Slf4j
 public class MatchController {
 
     private final MatchService matchService;
@@ -20,7 +24,16 @@ public class MatchController {
     @RateLimiter(key = "match", maxCount = 20, duration = 60)
     public Result<MatchRecordVO> matchJd(@RequestAttribute Long userId,
                                          @RequestBody MatchJdRequest body) {
+        log.info("接收到匹配请求，userId={}", userId);
         return Result.success(matchService.matchJd(userId, body.getResumeId(), body.getJdText()));
+    }
+
+    @PostMapping("/job")
+    @RateLimiter(key = "match", maxCount = 20, duration = 60)
+    public Result<MatchRecordVO> matchByJobId(@RequestAttribute Long userId,
+                                              @RequestBody MatchJobRequest body) {
+        log.info("接收到选择岗位匹配请求，userId={}", userId);
+        return Result.success(matchService.matchByJobId(userId, body.getResumeId(), body.getJobId()));
     }
 
     @GetMapping("/history")
@@ -28,5 +41,11 @@ public class MatchController {
                                                      @RequestParam(defaultValue = "1") int page,
                                                      @RequestParam(defaultValue = "50") int size) {
         return Result.success(matchService.listHistory(userId, page, size));
+    }
+
+    @GetMapping("/analysis/{id}")
+    public Result<MatchAnalysisResultVO> getAnalysis(@RequestAttribute Long userId,
+                                                     @PathVariable Long id) {
+        return Result.success(matchService.getAnalysisById(userId, id));
     }
 }

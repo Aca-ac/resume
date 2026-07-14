@@ -1,0 +1,7 @@
+-- 为匹配记录表添加各维度评分字段
+ALTER TABLE match_records
+    ADD COLUMN summary_score INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '个人总结评分 0-100',
+    ADD COLUMN education_score INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '教育背景评分 0-100',
+    ADD COLUMN experience_score INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '工作经历评分 0-100',
+    ADD COLUMN skill_score INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '专业技能评分 0-100',
+    ADD COLUMN project_score INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '项目经历评分 0-100';

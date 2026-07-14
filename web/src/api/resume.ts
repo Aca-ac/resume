@@ -60,6 +60,7 @@ function toResumeItem(r: {
   title: string;
   sourceType?: string;
   content?: string;
+  photoUrl?: string;
   updatedAt?: string;
 }): ResumeItem {
   return {
@@ -67,6 +68,7 @@ function toResumeItem(r: {
     title: r.title,
     sourceType: r.sourceType ?? "MANUAL",
     content: r.content ?? "",
+    photoUrl: r.photoUrl,
     updatedAt: r.updatedAt
   };
 }
@@ -89,6 +91,18 @@ export function updateResume(id: number, data: { title: string; content: string 
 
 export function deleteResume(id: number) {
   return request.delete<ApiResult<void>>(`/v1/resumes/${id}`).then(unwrap);
+}
+
+export function uploadResumePhoto(resumeId: number, file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  return request
+    .post<ApiResult<ResumeItem>>(`/v1/resumes/${resumeId}/photo`, form, multipartHeaders())
+    .then((res) => toResumeItem(unwrap(res)));
+}
+
+export function deleteResumePhoto(resumeId: number) {
+  return request.delete<ApiResult<ResumeItem>>(`/v1/resumes/${resumeId}/photo`).then((res) => toResumeItem(unwrap(res)));
 }
 
 async function uploadChunks(file: File, uploadId: string) {
