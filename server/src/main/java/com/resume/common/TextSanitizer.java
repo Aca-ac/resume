@@ -1,7 +1,8 @@
 package com.resume.common;
 
 /**
- * Strip NUL / C0 control characters that can truncate MySQL TEXT mid-string.
+ * Strip NUL / C0 control characters that can truncate MySQL TEXT mid-string
+ * and make resume body appear shorter than what the editor sent.
  */
 public final class TextSanitizer {
 
