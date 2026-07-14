@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/** Guards against single-page truncation when exporting long resumes. */
 class ResumeExportServiceTest {
 
     @Test

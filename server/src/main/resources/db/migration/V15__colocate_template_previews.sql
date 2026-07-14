@@ -1,3 +1,4 @@
+-- tip: co-located template previews for export
 -- 模板 docx 与预览图同目录；每类一套 template.docx + preview.png
 UPDATE resume_templates
 SET name = '简约风格',
