@@ -36,6 +36,7 @@ public class TemplateExportService {
     private final TemplateRenderService templateRenderService;
     private final LibreOfficePdfConverter pdfConverter;
     private final ExportStorageService exportStorageService;
+    private final ResumePhotoService resumePhotoService;
 
     public byte[] exportWord(Long userId, Long resumeId, Long templateId) throws IOException {
         Resume resume = resumeService.getResume(resumeId, userId);
@@ -106,13 +107,15 @@ public class TemplateExportService {
         return template.getTemplatePath();
     }
 
-    private TemplateRenderData buildRenderData(Long userId, Resume resume) {
+    private TemplateRenderData buildRenderData(Long userId, Resume resume) throws IOException {
         User user = userMapper.selectById(userId);
         List<ResumeDetail> details = resumeDetailMapper.selectList(
                 new LambdaQueryWrapper<ResumeDetail>()
                         .eq(ResumeDetail::getResumeId, resume.getId())
                         .orderByAsc(ResumeDetail::getSortOrder)
         );
+        byte[] photoBytes = resumePhotoService.loadPhotoBytes(resume);
+        String photoExt = photoExt(resume.getPhotoPath());
 
         return TemplateRenderData.builder()
                 .name(pickName(user))
@@ -123,7 +126,17 @@ public class TemplateExportService {
                 .project(sectionContent(details, SECTION_PROJECT))
                 .skill(sectionContent(details, SECTION_SKILL))
                 .summary(sectionContent(details, SECTION_SUMMARY))
+                .photoBytes(photoBytes)
+                .photoExt(photoExt)
                 .build();
+    }
+
+    private String photoExt(String photoPath) {
+        if (photoPath == null || photoPath.isBlank()) {
+            return null;
+        }
+        int dot = photoPath.lastIndexOf('.');
+        return dot >= 0 ? photoPath.substring(dot + 1) : "jpg";
     }
 
     private String buildFilename(String title, String ext) {

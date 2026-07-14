@@ -25,4 +25,8 @@ public class TemplateRenderData {
     private String skill;
     /** {{summary}} 个人总结，section_type=SUMMARY */
     private String summary;
+    /** {{@photo}} 一寸照（poi-tl 图片占位） */
+    private byte[] photoBytes;
+    /** photo 文件扩展名：jpg / png */
+    private String photoExt;
 }

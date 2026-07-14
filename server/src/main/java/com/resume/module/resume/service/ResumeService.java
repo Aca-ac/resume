@@ -47,6 +47,7 @@ public class ResumeService {
     private final ChunkUploadService chunkUploadService;
     private final StorageProperties storageProperties;
     private final ResumeOptimizeService optimizeService;
+    private final ResumePhotoService resumePhotoService;
 
     // ========== 简历 CRUD（正文存 resume_details.SUMMARY）==========
 
@@ -116,12 +117,13 @@ public class ResumeService {
 
     @Transactional
     public void deleteResume(Long id, Long userId) {
-        getResume(id, userId);
+        Resume resume = getResume(id, userId);
         List<ResumeFile> files = resumeFileMapper.selectList(
                 new LambdaQueryWrapper<ResumeFile>().eq(ResumeFile::getResumeId, id));
         for (ResumeFile file : files) {
             deletePhysicalFile(file.getFilePath());
         }
+        resumePhotoService.deletePhotoFile(resume.getPhotoPath());
         resumeDetailMapper.delete(new LambdaQueryWrapper<ResumeDetail>().eq(ResumeDetail::getResumeId, id));
         resumeFileMapper.delete(new LambdaQueryWrapper<ResumeFile>().eq(ResumeFile::getResumeId, id));
         resumeMapper.deleteById(id);
@@ -462,6 +464,7 @@ public class ResumeService {
         vo.setTitle(resume.getTitle());
         vo.setSourceType(resume.getSourceType() == null ? SOURCE_MANUAL : resume.getSourceType());
         vo.setContent(content);
+        vo.setPhotoUrl(ResumePhotoService.photoUrl(resume.getId(), resume.getPhotoPath()));
         vo.setUpdatedAt(resume.getUpdatedAt() == null ? null : resume.getUpdatedAt().format(FMT));
         return vo;
     }

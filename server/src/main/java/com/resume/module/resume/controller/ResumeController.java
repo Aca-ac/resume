@@ -11,6 +11,7 @@ import com.resume.module.resume.dto.ResumeVO;
 import com.resume.module.resume.entity.ResumeDetail;
 import com.resume.module.resume.entity.ResumeFile;
 import com.resume.module.resume.service.ExportStorageService;
+import com.resume.module.resume.service.ResumePhotoService;
 import com.resume.module.resume.service.ResumeService;
 import com.resume.module.resume.service.TemplateExportService;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ public class ResumeController {
 
     private final ResumeService resumeService;
     private final TemplateExportService templateExportService;
+    private final ResumePhotoService resumePhotoService;
 
     @PostMapping
     public Result<ResumeVO> createResume(@RequestAttribute Long userId,
@@ -211,6 +213,28 @@ public class ResumeController {
     public Result<ResumeFile> ocrImage(@PathVariable Long fileId,
                                        @RequestAttribute Long userId) {
         return Result.success(resumeService.ocrImage(fileId, userId));
+    }
+
+    @PostMapping(value = "/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Result<ResumeVO> uploadPhoto(@PathVariable Long id,
+                                        @RequestAttribute Long userId,
+                                        @RequestParam("file") MultipartFile file) throws IOException {
+        return Result.success(resumePhotoService.uploadPhoto(userId, id, file));
+    }
+
+    @GetMapping("/{id}/photo")
+    public ResponseEntity<byte[]> getPhoto(@PathVariable Long id,
+                                           @RequestAttribute Long userId) throws IOException {
+        ResumePhotoService.PhotoPayload photo = resumePhotoService.loadPhoto(userId, id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(photo.contentType()))
+                .body(photo.bytes());
+    }
+
+    @DeleteMapping("/{id}/photo")
+    public Result<ResumeVO> deletePhoto(@PathVariable Long id,
+                                          @RequestAttribute Long userId) {
+        return Result.success(resumePhotoService.deletePhoto(userId, id));
     }
 
     private ResponseEntity<byte[]> download(byte[] data, String filename, MediaType mediaType) {

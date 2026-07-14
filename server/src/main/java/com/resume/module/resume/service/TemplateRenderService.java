@@ -1,6 +1,8 @@
 package com.resume.module.resume.service;
 
 import com.deepoove.poi.XWPFTemplate;
+import com.deepoove.poi.data.PictureType;
+import com.deepoove.poi.data.Pictures;
 import com.resume.common.BusinessException;
 import com.resume.module.resume.dto.TemplateRenderData;
 import lombok.extern.slf4j.Slf4j;
@@ -10,12 +12,20 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Base64;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 @Slf4j
 @Service
 public class TemplateRenderService {
+
+    /** 一寸照渲染尺寸（约 2.5cm × 3.5cm @96dpi） */
+    private static final int PHOTO_WIDTH_PX = 95;
+    private static final int PHOTO_HEIGHT_PX = 133;
+    private static final byte[] TRANSPARENT_PNG = Base64.getDecoder().decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
 
     public byte[] renderWord(String templateClasspathPath, TemplateRenderData data) throws IOException {
         if (templateClasspathPath == null || templateClasspathPath.isBlank()) {
@@ -51,7 +61,28 @@ public class TemplateRenderService {
         map.put("project", safe(data.getProject()));
         map.put("skill", safe(data.getSkill()));
         map.put("summary", safe(data.getSummary()));
+        map.put("photo", buildPhotoRender(data));
         return map;
+    }
+
+    private Object buildPhotoRender(TemplateRenderData data) {
+        byte[] bytes = data.getPhotoBytes();
+        if (bytes == null || bytes.length == 0) {
+            return Pictures.ofBytes(TRANSPARENT_PNG, PictureType.PNG)
+                    .size(1, 1)
+                    .create();
+        }
+        PictureType type = pictureType(data.getPhotoExt());
+        return Pictures.ofBytes(bytes, type)
+                .size(PHOTO_WIDTH_PX, PHOTO_HEIGHT_PX)
+                .create();
+    }
+
+    private PictureType pictureType(String ext) {
+        if (ext != null && ext.toLowerCase(Locale.ROOT).endsWith("png")) {
+            return PictureType.PNG;
+        }
+        return PictureType.JPEG;
     }
 
     private String safe(String value) {

@@ -27,12 +27,22 @@ public class FileStorageService {
     }
 
     public StoredFile store(MultipartFile file) throws IOException {
+        return store(file, null);
+    }
+
+    public StoredFile store(MultipartFile file, String subDir) throws IOException {
         String original = file.getOriginalFilename() == null ? "file" : file.getOriginalFilename();
         String ext = ext(original);
         String storedName = UUID.randomUUID() + ext;
-        Path target = root.resolve(storedName);
+        Path base = subDir == null || subDir.isBlank() ? root : root.resolve(subDir).normalize();
+        if (!base.startsWith(root)) {
+            throw new IllegalArgumentException("非法存储目录");
+        }
+        Files.createDirectories(base);
+        Path target = base.resolve(storedName);
         String md5 = copyWithMd5(file.getInputStream(), target);
-        return new StoredFile(storedName, original, target, file.getSize(), md5);
+        String relative = subDir == null || subDir.isBlank() ? storedName : subDir.replace('\\', '/') + "/" + storedName;
+        return new StoredFile(relative, original, target, file.getSize(), md5);
     }
 
     public StoredFile store(StoredFile existing) {
@@ -40,7 +50,11 @@ public class FileStorageService {
     }
 
     public Path resolve(String storedName) {
-        return root.resolve(storedName).normalize();
+        Path resolved = root.resolve(storedName).normalize();
+        if (!resolved.startsWith(root)) {
+            throw new IllegalArgumentException("非法文件路径");
+        }
+        return resolved;
     }
 
     private static String ext(String original) {
