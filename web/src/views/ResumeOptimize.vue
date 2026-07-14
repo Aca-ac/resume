@@ -111,7 +111,7 @@ async function onOptimize() {
       title: targetRole.value,
       content: result.content
     };
-    ElMessage.success("优化完成！");
+    ElMessage.success("优化完成，已自动保存到简历");
   } catch (e: any) {
     ElMessage.error(e.message || "优化失败，请重试");
   } finally {

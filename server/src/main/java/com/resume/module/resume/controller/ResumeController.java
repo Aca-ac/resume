@@ -55,6 +55,10 @@ public class ResumeController {
         return Result.success(resumeService.listResumes(userId));
     }
 
+    /**
+     * 更新简历：优先 JSON body { title, content }；仅改标题时可传 ?title=
+     * content 字段存在（含空串）即写回 SUMMARY 正文。
+     */
     @PutMapping("/{id}")
     public Result<ResumeVO> updateResume(@PathVariable Long id,
                                          @RequestAttribute Long userId,
@@ -65,8 +69,10 @@ public class ResumeController {
         }
         if (title != null) {
             resumeService.updateResumeTitle(id, userId, title);
+            return Result.success(resumeService.getResumeVo(id, userId));
         }
-        return Result.success(resumeService.getResumeVo(id, userId));
+        // 避免静默 no-op：既没有 body 字段也没有 title 参数时直接提示
+        return Result.error(400, "请使用 JSON body 提供 title/content，或使用 query 参数 title");
     }
 
     @DeleteMapping("/{id}")
