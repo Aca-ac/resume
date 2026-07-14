@@ -97,7 +97,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { Plus, Close } from '@element-plus/icons-vue';
 import { useJob } from '@/composables/useJob';
-import type { JobSimple } from '@/types/job';
+import type { JobSimple, CommunityJobVO } from '@/types/job';
 import JobCard from '@/components/JobCard.vue';
 import SearchForm from '@/components/SearchForm.vue';
 
@@ -188,7 +188,7 @@ function handleClear() {
 /**
  * 点击卡片跳转详情 - 跳转到我的岗位详情（带编辑/删除权限）
  */
-function handleCardClick(job: JobSimple) {
+function handleCardClick(job: JobSimple | CommunityJobVO) {
   router.push(`/jobs/${job.id}`);
 }
 
