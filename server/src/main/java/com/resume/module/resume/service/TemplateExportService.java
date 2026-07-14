@@ -82,7 +82,7 @@ public class TemplateExportService {
         vo.setTemplateId(templateId);
         vo.setFormat(normalized);
         vo.setFilename(downloadFilename);
-        vo.setDownloadUrl("/api/v1/resumes/exports/" + stored.exportId() + "/download");
+        vo.setDownloadUrl("/v1/resumes/exports/" + stored.exportId() + "/download");
         vo.setExpiresAt(exportStorageService.formatExpiresAt(stored.expiresAt()));
         log.info("Export job created exportId={}, resumeId={}, template={}", stored.exportId(), resumeId, template.getName());
         return vo;
