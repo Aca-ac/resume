@@ -64,6 +64,12 @@ jobs:
           distribution: temurin
           cache: maven
 
+      # PDF export embeds CJK glyphs; without these fonts ResumeExportServiceTest fails
+      - name: Install CJK fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-noto-cjk fonts-wqy-zenhei fonts-noto-color-emoji
+
       - name: Build & test with Maven
         working-directory: server
         run: >
