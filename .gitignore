@@ -9,6 +9,9 @@ target/
 server/.m2/
 server/out/
 
+# Local dev scripts (template maintenance, smoke tests — not part of runtime)
+scripts/
+
 # Temp files
 *.py
 *.err
