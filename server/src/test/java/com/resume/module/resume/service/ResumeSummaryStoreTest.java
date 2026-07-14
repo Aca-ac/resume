@@ -26,4 +26,23 @@ class ResumeSummaryStoreTest {
         assertEquals(2L, picked.getId());
         assertEquals("short", picked.getContent());
     }
+
+    @Test
+    void pickCanonical_sameUpdatedAt_prefersLargerId() {
+        LocalDateTime same = LocalDateTime.of(2026, 7, 14, 12, 0);
+
+        ResumeDetail earlierId = new ResumeDetail();
+        earlierId.setId(10L);
+        earlierId.setContent("a");
+        earlierId.setUpdatedAt(same);
+
+        ResumeDetail laterId = new ResumeDetail();
+        laterId.setId(20L);
+        laterId.setContent("b");
+        laterId.setUpdatedAt(same);
+
+        ResumeDetail picked = ResumeSummaryStore.pickCanonical(List.of(earlierId, laterId));
+        assertEquals(20L, picked.getId());
+        assertEquals("b", picked.getContent());
+    }
 }

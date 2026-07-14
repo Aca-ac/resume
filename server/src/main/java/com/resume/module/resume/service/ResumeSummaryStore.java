@@ -16,6 +16,8 @@ import java.util.List;
 
 /**
  * Single source of truth for resume_details.SUMMARY load/save.
+ * Canonical row = newest {@code updatedAt} (then max id), not longest content —
+ * otherwise shortening an edit can look like it "failed to save".
  * Public methods are transactional so callers outside a larger txn still stay atomic.
  */
 @Slf4j
