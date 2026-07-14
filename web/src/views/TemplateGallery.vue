@@ -16,6 +16,7 @@
       <el-button type="primary" plain :loading="recLoading" @click="loadRecommend">智能推荐</el-button>
     </section>
 
+
     <section v-loading="loading" class="grid">
       <div
         v-for="item in cards"

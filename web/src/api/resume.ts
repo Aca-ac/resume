@@ -81,6 +81,8 @@ export function fetchResume(id: number) {
   return request.get<ApiResult<ResumeItem>>(`/v1/resumes/${id}`).then((res) => toResumeItem(unwrap(res)));
 }
 
+
+
 export function createResume(data: { title: string; content: string }) {
   return request.post<ApiResult<ResumeItem>>("/v1/resumes", data).then((res) => toResumeItem(unwrap(res)));
 }

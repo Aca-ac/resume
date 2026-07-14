@@ -17,6 +17,8 @@
           <el-select v-model="resumeId" placeholder="选择要导出的简历" filterable style="width: 100%">
             <el-option
               v-for="r in resumes"
+
+
               :key="r.id"
               :label="r.title"
               :value="r.id"

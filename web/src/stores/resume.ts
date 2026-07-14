@@ -36,4 +36,6 @@ export const useResumeStore = defineStore("resume", {
       await this.loadList();
     }
   }
+
+
 });
