@@ -50,6 +50,7 @@ export interface MatchAnalysisResult {
 export interface MatchRecord {
   id: number;
   resumeId: number;
+  jobId?: number;
   matchScore: number;
   summaryScore?: number;
   educationScore?: number;
@@ -71,6 +72,12 @@ function unwrap<T>(res: ApiResult<T>): T {
 export function matchJd(data: { resumeId: number; jdText: string }) {
   return request
       .post<ApiResult<MatchRecord>>("/v1/match/jd", data)
+      .then((res) => unwrap(res));
+}
+
+export function matchByJob(data: { resumeId: number; jobId: number }) {
+  return request
+      .post<ApiResult<MatchRecord>>("/v1/match/job", data)
       .then((res) => unwrap(res));
 }
 
