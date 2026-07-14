@@ -166,3 +166,58 @@ export async function exportResumeDocx(id: number) {
 export async function exportResumeText(id: number) {
   await downloadExport(`/v1/resumes/${id}/export/text`, `resume-${id}.txt`);
 }
+
+export interface ExportResultVO {
+  exportId: string;
+  resumeId: number;
+  templateId: number;
+  format: string;
+  filename: string;
+  downloadUrl: string;
+  expiresAt?: string;
+}
+
+/** Strip accidental /api prefix so axios baseURL=/api does not become /api/api/... */
+function toAxiosApiPath(url: string): string {
+  const trimmed = (url || "").trim();
+  if (!trimmed) return trimmed;
+  if (trimmed.startsWith("/api/")) return trimmed.slice(4);
+  if (trimmed.startsWith("api/")) return `/${trimmed.slice(4)}`;
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
+/** Template export: POST job then download blob via downloadUrl / exportId. */
+export async function exportResumeByTemplate(
+  resumeId: number,
+  templateId: number,
+  format: "word" | "pdf" = "word"
+) {
+  const job = await request
+    .post<ApiResult<ExportResultVO>>(
+      `/v1/resumes/${resumeId}/export?templateId=${templateId}&format=${format}`,
+      null,
+      { timeout: 120000 }
+    )
+    .then(unwrap);
+
+  const path = job.downloadUrl
+    ? toAxiosApiPath(job.downloadUrl)
+    : `/v1/resumes/exports/${job.exportId}/download`;
+  await downloadExport(path, job.filename || `resume-${resumeId}.${format === "pdf" ? "pdf" : "docx"}`);
+  return job;
+}
+
+/** Direct template Word/PDF (one-shot, no job id). */
+export async function exportResumeWordByTemplate(resumeId: number, templateId: number) {
+  await downloadExport(
+    `/v1/resumes/${resumeId}/export/word?templateId=${templateId}`,
+    `resume-${resumeId}.docx`
+  );
+}
+
+export async function exportResumePdfByTemplate(resumeId: number, templateId: number) {
+  await downloadExport(
+    `/v1/resumes/${resumeId}/export/pdf?templateId=${templateId}`,
+    `resume-${resumeId}.pdf`
+  );
+}

@@ -9,7 +9,7 @@ public class ExportResultVO {
     private Long templateId;
     private String format;
     private String filename;
-    /** 相对下载路径，如 /api/v1/resumes/exports/{exportId}/download */
+    /** 相对 API 前缀的下载路径，如 /v1/resumes/exports/{exportId}/download（axios baseURL=/api 时勿再含 /api） */
     private String downloadUrl;
     private String expiresAt;
 }
