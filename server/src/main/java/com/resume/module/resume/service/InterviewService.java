@@ -8,10 +8,8 @@ import com.resume.module.resume.dto.PageResult;
 import com.resume.module.resume.entity.InterviewMessage;
 import com.resume.module.resume.entity.InterviewSession;
 import com.resume.module.resume.entity.Resume;
-import com.resume.module.resume.entity.ResumeDetail;
 import com.resume.module.resume.mapper.InterviewMessageMapper;
 import com.resume.module.resume.mapper.InterviewSessionMapper;
-import com.resume.module.resume.mapper.ResumeDetailMapper;
 import com.resume.module.resume.mapper.ResumeMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +38,7 @@ public class InterviewService {
     private final InterviewSessionMapper sessionMapper;
     private final InterviewMessageMapper messageMapper;
     private final ResumeMapper resumeMapper;
-    private final ResumeDetailMapper resumeDetailMapper;
+    private final ResumeSummaryStore summaryStore;
     private final RestClient restClient = RestClient.create();
 
     @Value("${app.ai.qwen.api-key:}")
@@ -261,11 +259,7 @@ public class InterviewService {
     }
 
     private String loadSummary(Long resumeId) {
-        ResumeDetail detail = resumeDetailMapper.selectOne(new LambdaQueryWrapper<ResumeDetail>()
-                .eq(ResumeDetail::getResumeId, resumeId)
-                .eq(ResumeDetail::getSectionType, "SUMMARY")
-                .last("LIMIT 1"));
-        return detail == null || detail.getContent() == null ? "" : detail.getContent();
+        return summaryStore.load(resumeId);
     }
 
     private InterviewSessionVO toSessionVo(InterviewSession session) {

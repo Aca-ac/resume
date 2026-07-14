@@ -23,7 +23,6 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class TemplateExportService {
 
-    private static final String SECTION_SUMMARY = "SUMMARY";
     private static final String SECTION_EDUCATION = "EDUCATION";
     private static final String SECTION_WORK = "WORK_EXPERIENCE";
     private static final String SECTION_PROJECT = "PROJECT";
@@ -37,6 +36,7 @@ public class TemplateExportService {
     private final LibreOfficePdfConverter pdfConverter;
     private final ExportStorageService exportStorageService;
     private final ResumePhotoService resumePhotoService;
+    private final ResumeSummaryStore summaryStore;
 
     public byte[] exportWord(Long userId, Long resumeId, Long templateId) throws IOException {
         Resume resume = resumeService.getResume(resumeId, userId);
@@ -125,7 +125,7 @@ public class TemplateExportService {
                 .workExperience(sectionContent(details, SECTION_WORK))
                 .project(sectionContent(details, SECTION_PROJECT))
                 .skill(sectionContent(details, SECTION_SKILL))
-                .summary(sectionContent(details, SECTION_SUMMARY))
+                .summary(summaryStore.load(resume.getId()))
                 .photoBytes(photoBytes)
                 .photoExt(photoExt)
                 .build();
