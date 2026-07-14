@@ -21,28 +21,41 @@
             首页
           </div>
 
-          <!-- 简历制作 -->
+          <!-- 岗位管理 - 合并为导航项 + 下拉 -->
           <el-dropdown
               trigger="click"
-              @command="handleResumeCommand"
-              @visible-change="onResumeDropdownVisible"
+              @command="handleJobCommand"
+              @visible-change="onJobDropdownVisible"
               class="dropdown-trigger"
           >
             <div
                 :class="['nav-item', {
-                'is-active': isResumeActive,
-                'is-open': resumeDropdownOpen
+                'is-active': isJobActive || isCommunityActive,
+                'is-open': jobDropdownOpen
               }]"
-                @click="toggleResumeDropdown"
+                @click="toggleJobDropdown"
             >
-              简历制作
+              岗位管理
               <el-icon class="dropdown-arrow"><ArrowDown /></el-icon>
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="list">简历列表</el-dropdown-item>
-                <el-dropdown-item command="new">简历制作</el-dropdown-item>
-                <el-dropdown-item command="import">简历导入</el-dropdown-item>
+                <el-dropdown-item command="community">
+                  <el-icon><Share /></el-icon>
+                  岗位社区
+                </el-dropdown-item>
+                <el-dropdown-item divided command="list">
+                  <el-icon><Document /></el-icon>
+                  我的岗位
+                </el-dropdown-item>
+                <el-dropdown-item command="create">
+                  <el-icon><Plus /></el-icon>
+                  创建岗位
+                </el-dropdown-item>
+                <el-dropdown-item command="search">
+                  <el-icon><Search /></el-icon>
+                  AI搜索JD
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -64,6 +77,32 @@
           >
             AI面试练习
           </div>
+
+          <!-- 简历管理 - 独立导航项 -->
+          <el-dropdown
+              trigger="click"
+              @command="handleResumeCommand"
+              @visible-change="onResumeDropdownVisible"
+              class="dropdown-trigger"
+          >
+            <div
+                :class="['nav-item', {
+                'is-active': isResumeActive,
+                'is-open': resumeDropdownOpen
+              }]"
+                @click="toggleResumeDropdown"
+            >
+              简历管理
+              <el-icon class="dropdown-arrow"><ArrowDown /></el-icon>
+            </div>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="list">简历列表</el-dropdown-item>
+                <el-dropdown-item command="new">创建简历</el-dropdown-item>
+                <el-dropdown-item command="import">导入简历</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </div>
 
@@ -126,7 +165,11 @@ import {
   User,
   SwitchButton,
   ArrowDown,
-  Bell
+  Bell,
+  Document,
+  Plus,
+  Search,
+  Share
 } from "@element-plus/icons-vue";
 import { useAuthStore } from "@/stores/auth";
 
@@ -135,15 +178,26 @@ const router = useRouter();
 const route = useRoute();
 
 const resumeDropdownOpen = ref(false);
+const jobDropdownOpen = ref(false);
 
 // 判断简历相关路由是否激活
 const isResumeActive = computed(() => {
   return route.path.startsWith('/resumes');
 });
 
+// 判断岗位相关路由是否激活
+const isJobActive = computed(() => {
+  return route.path.startsWith('/jobs');
+});
+
+// 判断社区岗位路由是否激活
+const isCommunityActive = computed(() => {
+  return route.path.startsWith('/community');
+});
+
 // 导航跳转
 const navigateTo = (path: string) => {
-  const authRequiredPaths = ['/resumes', '/match', '/interview'];
+  const authRequiredPaths = ['/resumes', '/match', '/interview', '/jobs'];
   const needsAuth = authRequiredPaths.some(p => path.startsWith(p));
 
   if (needsAuth && !auth.isLoggedIn) {
@@ -186,6 +240,50 @@ const handleResumeCommand = (command: string) => {
 const onResumeDropdownVisible = (visible: boolean) => {
   if (auth.isLoggedIn) {
     resumeDropdownOpen.value = visible;
+  }
+};
+
+// 切换岗位下拉菜单
+const toggleJobDropdown = () => {
+  // 社区岗位是公开的，不需要登录
+  // 但点击下拉菜单时，如果是已登录状态才展开
+  if (jobDropdownOpen.value) {
+    jobDropdownOpen.value = false;
+    return;
+  }
+  jobDropdownOpen.value = true;
+};
+
+// 岗位下拉菜单命令
+const handleJobCommand = (command: string) => {
+  // 社区岗位是公开的，不需要登录
+  if (command === 'community') {
+    router.push('/community');
+    jobDropdownOpen.value = false;
+    return;
+  }
+
+  // 其他岗位管理功能需要登录
+  if (!auth.isLoggedIn) {
+    ElMessage.warning('请先登录再访问岗位管理功能');
+    router.push('/login');
+    return;
+  }
+
+  const pathMap: Record<string, string> = {
+    list: '/jobs',
+    create: '/jobs/create',
+    search: '/jobs/search'
+  };
+  router.push(pathMap[command]);
+  jobDropdownOpen.value = false;
+};
+
+// 岗位下拉显示状态
+const onJobDropdownVisible = (visible: boolean) => {
+  // 社区岗位公开，但下拉菜单的展开由 toggle 控制
+  if (!visible) {
+    jobDropdownOpen.value = false;
   }
 };
 
@@ -287,7 +385,6 @@ const avatarLetter = computed(() => {
   box-shadow: 0 2px 8px rgba(100, 163, 134, 0.08);
 }
 
-
 .nav-item {
   padding: 8px 22px;
   border-radius: 24px;
@@ -347,7 +444,7 @@ const avatarLetter = computed(() => {
   border-radius: 12px;
   padding: 6px;
   box-shadow: 0 4px 20px rgba(100, 163, 134, 0.15);
-  min-width: 140px;
+  min-width: 160px;
   background: #fff;
   border: 1px solid rgba(100, 163, 134, 0.1);
 }
@@ -361,11 +458,28 @@ const avatarLetter = computed(() => {
   padding: 10px 16px;
   font-size: 14px;
   color: #4a6a5a;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 :deep(.el-dropdown-menu .el-dropdown-item:hover) {
   background: #FBFCCD;
   color: #3d7a5e;
+}
+
+:deep(.el-dropdown-menu .el-dropdown-item .el-icon) {
+  font-size: 16px;
+  color: #64A386;
+}
+
+:deep(.el-dropdown-menu .el-dropdown-item .el-icon--right) {
+  margin-left: auto;
+}
+
+:deep(.el-divider--horizontal) {
+  margin: 6px 0;
+  border-color: rgba(100, 163, 134, 0.1);
 }
 
 /* ========== 右侧操作区 ========== */
@@ -482,7 +596,7 @@ const avatarLetter = computed(() => {
 
 /* ========== 主内容 ========== */
 .main {
-  padding:0;
+  padding: 0;
   flex: 1;
   overflow-y: auto;
   background: #f5f8f6;
@@ -645,4 +759,3 @@ const avatarLetter = computed(() => {
   }
 }
 </style>
-
