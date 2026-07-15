@@ -12,6 +12,7 @@
         <p><strong>模板 ID：</strong>{{ template.id }}</p>
         <p><strong>预览路径：</strong>{{ template.previewUrl }}</p>
         <p><strong>模板文件：</strong>{{ template.templatePath }}</p>
+        <el-button type="primary" plain @click="copyId">复制 templateId</el-button>
 
         <div class="export-box">
           <el-select v-model="resumeId" placeholder="选择要导出的简历" filterable style="width: 100%">
@@ -86,6 +87,12 @@ async function doExport(format: "word" | "pdf") {
   } finally {
     exporting.value = "";
   }
+}
+
+async function copyId() {
+  if (!template.value) return;
+  await navigator.clipboard.writeText(String(template.value.id));
+  ElMessage.success("已复制 templateId=" + template.value.id);
 }
 
 onMounted(load);

@@ -29,11 +29,13 @@ class ResumeExportServiceTest {
 
     @Test
     void exportPdf_keepsChineseAndMapsSpecialChars() throws Exception {
-        String content = "姓名：张三\n"
-                + "项目：• BlueBird 状态机 → DONE\n"
-                + "标点：“智能简历” — 省略号…\n"
-                + "标记：★重点 ※备注\n"
-                + "部首：⻘春\n";
+        String content = """
+                姓名：张三
+                项目：• Chronos 状态机 → DONE
+                标点：“智能简历” — 省略号…
+                标记：★重点 ※备注
+                部首：⻘春
+                """;
 
         byte[] pdf = service.exportPdf("简历导出测试", content);
         try (PDDocument doc = Loader.loadPDF(pdf)) {
@@ -41,9 +43,9 @@ class ResumeExportServiceTest {
             boolean hasHan = text.chars().anyMatch(ch ->
                     Character.UnicodeScript.of(ch) == Character.UnicodeScript.HAN);
             assertTrue(hasHan,
-                    "No CJK characters in PDF — install fonts-noto-cjk / fonts-wqy-zenhei: " + text);
+                    "No CJK characters in PDF — install fonts-noto-cjk / fonts-wqy-zenhei, or embed a font under /fonts/: " + text);
             assertTrue(text.contains("张三"), text);
-            assertTrue(text.contains("BlueBird"), text);
+            assertTrue(text.contains("Chronos"), text);
             assertTrue(text.contains("DONE"), text);
             assertTrue(text.contains("智能简历") || text.contains("智能"), text);
             assertTrue(text.contains("->") || text.contains("DONE"), text);
