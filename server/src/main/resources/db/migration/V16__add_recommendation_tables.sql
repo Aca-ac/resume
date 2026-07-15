@@ -1,0 +1,43 @@
+CREATE TABLE IF NOT EXISTS recommendation_session (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+    resume_id BIGINT UNSIGNED NOT NULL COMMENT '简历ID',
+    has_match_result TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '是否有匹配结果：0-无，1-有',
+    problem_description TEXT NULL COMMENT '问题描述（无匹配时）',
+    improvement_suggestions TEXT NULL COMMENT '改进建议JSON数组（无匹配时）',
+    suggestion_priority VARCHAR(20) NULL COMMENT '建议优先级：high/medium/low',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (id),
+    KEY idx_user_id (user_id),
+    KEY idx_resume_id (resume_id),
+    KEY idx_created_at (created_at),
+    CONSTRAINT fk_session_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_session_resume FOREIGN KEY (resume_id) REFERENCES resumes(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='岗位推荐会话表';
+
+CREATE TABLE IF NOT EXISTS match_recommendation (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    session_id BIGINT UNSIGNED NOT NULL COMMENT '推荐会话ID',
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+    resume_id BIGINT UNSIGNED NOT NULL COMMENT '简历ID',
+    job_id BIGINT UNSIGNED NULL COMMENT '平台内岗位ID（来源为PLATFORM时）',
+    job_name VARCHAR(255) NOT NULL COMMENT '岗位名称',
+    jd_content TEXT NULL COMMENT '岗位完整描述内容（JD详情）',
+    match_score INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '匹配度评分（0-100）',
+    match_reason TEXT NULL COMMENT '匹配度判断理由',
+    source TINYINT UNSIGNED NOT NULL COMMENT '来源：1-NETWORK(联网搜索)，2-PLATFORM(平台内)',
+    source_url VARCHAR(1000) NULL COMMENT '来源链接（联网搜索结果）',
+    source_job_id BIGINT UNSIGNED NULL COMMENT '平台内岗位原始ID',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (id),
+    KEY idx_session_id (session_id),
+    KEY idx_user_id (user_id),
+    KEY idx_resume_id (resume_id),
+    KEY idx_job_id (job_id),
+    KEY idx_source (source),
+    KEY idx_created_at (created_at),
+    CONSTRAINT fk_rec_session FOREIGN KEY (session_id) REFERENCES recommendation_session(id) ON DELETE CASCADE,
+    CONSTRAINT fk_rec_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_rec_resume FOREIGN KEY (resume_id) REFERENCES resumes(id) ON DELETE CASCADE,
+    CONSTRAINT fk_rec_job FOREIGN KEY (job_id) REFERENCES target_jobs(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='岗位匹配推荐记录表';
