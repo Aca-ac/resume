@@ -3,7 +3,7 @@
     <!-- 主视觉标语 -->
     <section class="hero-section">
       <h1 class="hero-title">🎯 职位匹配分析</h1>
-      <p class="hero-subtitle">选择简历并粘贴职位描述，智能分析你的匹配程度。</p>
+      <p class="hero-subtitle">选择简历，粘贴职位描述或选择已保存岗位，智能分析匹配程度。</p>
     </section>
 
     <!-- 内容区域：左右布局改为上下布局 -->
@@ -15,7 +15,7 @@
           <div class="form-card">
             <div class="card-header">
               <span class="card-title">📋 匹配设置</span>
-              <span class="card-subtitle">选择简历并输入职位描述</span>
+              <span class="card-subtitle">选择简历并输入 JD 或选择岗位</span>
             </div>
             <el-form label-width="80px" label-position="top">
               <el-form-item label="选择简历">
@@ -23,7 +23,29 @@
                   <el-option v-for="r in resumes" :key="r.id" :label="r.title" :value="r.id" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="职位描述">
+              <el-form-item label="JD 来源">
+                <el-radio-group v-model="matchMode">
+                  <el-radio-button value="jd">粘贴 JD</el-radio-button>
+                  <el-radio-button value="job">选择岗位</el-radio-button>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item v-if="matchMode === 'job'" label="选择岗位">
+                <el-select
+                    v-model="jobId"
+                    placeholder="请选择已保存的岗位"
+                    style="width: 100%"
+                    filterable
+                    :loading="isLoadingJobs"
+                >
+                  <el-option
+                      v-for="j in jobs"
+                      :key="j.id"
+                      :label="j.jobName"
+                      :value="j.id"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-form-item v-else label="职位描述">
                 <el-input
                     v-model="jdText"
                     type="textarea"
@@ -183,9 +205,15 @@
       </div>
 
       <el-table :data="matchStore.history" class="history-table" stripe>
-        <el-table-column prop="resumeId" label="简历" min-width="150">
+        <el-table-column prop="resumeId" label="简历" min-width="120">
           <template #default="{ row }">
             <span class="resume-name">{{ getResumeTitle(row.resumeId) || row.resumeId }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="jobId" label="岗位" min-width="120">
+          <template #default="{ row }">
+            <span v-if="row.jobId">{{ getJobName(row.jobId) || `#${row.jobId}` }}</span>
+            <span v-else class="text-muted">手动 JD</span>
           </template>
         </el-table-column>
         <el-table-column prop="matchScore" label="匹配度" width="120" align="center">
@@ -225,8 +253,11 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, nextTick } from "vue";
+import { useRoute } from "vue-router";
 import { useMatchStore } from "@/stores/match";
 import { useResumeStore } from "@/stores/resume";
+import { jobApi } from "@/api/job";
+import type { JobSimple } from "@/types/job";
 import { ElMessage } from "element-plus";
 import {
   Document,
@@ -241,11 +272,16 @@ import type { RadarDataItem } from "@/components/RadarChart.vue";
 
 const matchStore = useMatchStore();
 const resumeStore = useResumeStore();
+const route = useRoute();
 
 // ===== 状态 =====
 const resumes = computed(() => resumeStore.list);
 const resumeId = ref<number | null>(null);
+const matchMode = ref<"jd" | "job">("jd");
 const jdText = ref("");
+const jobId = ref<number | null>(null);
+const jobs = ref<JobSimple[]>([]);
+const isLoadingJobs = ref(false);
 const isAnalyzing = ref(false);
 const isLoadingHistory = ref(false);
 const isViewingDetail = ref(false);
@@ -285,6 +321,45 @@ const suggestions = computed(() => {
 function getResumeTitle(id: number): string {
   const resume = resumeStore.list.find(r => r.id === id);
   return resume?.title || '';
+}
+
+function getJobName(id: number): string {
+  const job = jobs.value.find(j => j.id === id);
+  return job?.jobName || '';
+}
+
+async function loadJobs() {
+  isLoadingJobs.value = true;
+  try {
+    const [mine, community] = await Promise.all([
+      jobApi.getJobList({ page: 1, size: 100 }),
+      jobApi.getCommunityJobs({ page: 1, size: 100 }),
+    ]);
+    const map = new Map<number, JobSimple>();
+    for (const j of mine.content ?? []) {
+      map.set(j.id, j);
+    }
+    for (const j of community.content ?? []) {
+      if (!map.has(j.id)) {
+        map.set(j.id, {
+          id: j.id,
+          jobName: j.jobName,
+          source: j.source,
+          sourceUrls: [],
+          createdAt: j.createdAt,
+          owner: j.owner,
+        });
+      }
+    }
+    jobs.value = Array.from(map.values());
+    if (jobId.value && !map.has(jobId.value)) {
+      jobId.value = null;
+    }
+  } catch (e: any) {
+    ElMessage.error(e.message || '加载岗位列表失败');
+  } finally {
+    isLoadingJobs.value = false;
+  }
 }
 
 function scoreTagType(score: number) {
@@ -352,14 +427,23 @@ async function onMatch() {
     ElMessage.warning("请选择简历");
     return;
   }
-  if (!jdText.value.trim()) {
+  if (matchMode.value === "job") {
+    if (!jobId.value) {
+      ElMessage.warning("请选择岗位");
+      return;
+    }
+  } else if (!jdText.value.trim()) {
     ElMessage.warning("请粘贴职位描述");
     return;
   }
 
   isAnalyzing.value = true;
   try {
-    await matchStore.runMatch(resumeId.value, jdText.value);
+    if (matchMode.value === "job" && jobId.value) {
+      await matchStore.runMatchByJob(resumeId.value, jobId.value);
+    } else {
+      await matchStore.runMatch(resumeId.value, jdText.value);
+    }
     ElMessage.success("匹配分析完成！");
     showSuggestions.value = true;
     // 滚动到结果区域
@@ -378,9 +462,17 @@ async function onMatch() {
 // ===== 生命周期 =====
 onMounted(async () => {
   await resumeStore.loadList();
+  await loadJobs();
   await loadHistory();
   if (resumeStore.list.length) {
     resumeId.value = resumeStore.list[0].id;
+  }
+  const queryJobId = Number(route.query.jobId);
+  if (queryJobId > 0) {
+    matchMode.value = "job";
+    jobId.value = queryJobId;
+  } else if (jobs.value.length) {
+    jobId.value = jobs.value[0].id;
   }
 });
 </script>

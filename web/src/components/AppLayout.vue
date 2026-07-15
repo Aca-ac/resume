@@ -69,6 +69,15 @@
             AI简历分析
           </div>
 
+          <!-- 模板广场 -->
+          <div
+              class="nav-item"
+              :class="{ 'is-active': isTemplateActive }"
+              @click="navigateTo('/templates')"
+          >
+            模板广场
+          </div>
+
           <!-- AI面试练习 -->
           <div
               class="nav-item"
@@ -100,6 +109,7 @@
                 <el-dropdown-item command="list">简历列表</el-dropdown-item>
                 <el-dropdown-item command="new">创建简历</el-dropdown-item>
                 <el-dropdown-item command="import">导入简历</el-dropdown-item>
+                <el-dropdown-item divided command="templates">模板广场</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -182,7 +192,11 @@ const jobDropdownOpen = ref(false);
 
 // 判断简历相关路由是否激活
 const isResumeActive = computed(() => {
-  return route.path.startsWith('/resumes');
+  return route.path.startsWith('/resumes') || route.path.startsWith('/resume/preview');
+});
+
+const isTemplateActive = computed(() => {
+  return route.path.startsWith('/templates') || route.path.startsWith('/resume/preview');
 });
 
 // 判断岗位相关路由是否激活
@@ -197,7 +211,7 @@ const isCommunityActive = computed(() => {
 
 // 导航跳转
 const navigateTo = (path: string) => {
-  const authRequiredPaths = ['/resumes', '/match', '/interview', '/jobs'];
+  const authRequiredPaths = ['/resumes', '/resume', '/templates', '/match', '/interview', '/jobs'];
   const needsAuth = authRequiredPaths.some(p => path.startsWith(p));
 
   if (needsAuth && !auth.isLoggedIn) {
@@ -230,7 +244,8 @@ const handleResumeCommand = (command: string) => {
   const pathMap: Record<string, string> = {
     list: '/resumes',
     new: '/resumes/new',
-    import: '/resumes/import'
+    import: '/resumes/import',
+    templates: '/templates'
   };
   router.push(pathMap[command]);
   resumeDropdownOpen.value = false;

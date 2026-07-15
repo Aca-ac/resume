@@ -11,9 +11,11 @@ import com.resume.module.resume.dto.ResumeVO;
 import com.resume.module.resume.entity.Resume;
 import com.resume.module.resume.entity.ResumeDetail;
 import com.resume.module.resume.entity.ResumeFile;
+import com.resume.module.resume.entity.ResumeSemanticVector;
 import com.resume.module.resume.mapper.ResumeDetailMapper;
 import com.resume.module.resume.mapper.ResumeFileMapper;
 import com.resume.module.resume.mapper.ResumeMapper;
+import com.resume.module.resume.mapper.ResumeSemanticVectorMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -41,6 +43,7 @@ public class ResumeService {
     private final ResumeMapper resumeMapper;
     private final ResumeDetailMapper resumeDetailMapper;
     private final ResumeFileMapper resumeFileMapper;
+    private final ResumeSemanticVectorMapper resumeSemanticVectorMapper;
     private final FileStorageService fileStorageService;
     private final FileParseService fileParseService;
     private final ResumeExportService exportService;
@@ -73,6 +76,10 @@ public class ResumeService {
         resume.setSourceType(SOURCE_MANUAL);
         resume.setVersion(1);
         resumeMapper.insert(resume);
+        if (req.getJobIntention() != null) {
+            resume.setJobIntention(req.getJobIntention().trim());
+            resumeMapper.updateById(resume);
+        }
         String content = defaultContent(req.getContent());
         summaryStore.save(resume.getId(), content);
         return toVO(resume, summaryStore.load(resume.getId()));
@@ -115,6 +122,7 @@ public class ResumeService {
             throw new BusinessException(400, "请求体不能为空");
         }
         Resume resume = getResume(id, userId);
+        String originalContent = summaryStore.load(id);
         boolean touched = false;
         if (req.getTitle() != null) {
             resume.setTitle(req.getTitle().isBlank() ? "未命名简历" : req.getTitle().trim());
@@ -125,11 +133,18 @@ public class ResumeService {
             summaryStore.save(id, req.getContent());
             touched = true;
         }
+        if (req.getJobIntention() != null) {
+            resume.setJobIntention(req.getJobIntention().trim());
+            touched = true;
+        }
         if (!touched) {
-            throw new BusinessException(400, "请提供 title 或 content 以更新简历");
+            throw new BusinessException(400, "请提供 title、content 或 jobIntention 以更新简历");
         }
         resume.setVersion(resume.getVersion() == null ? 1 : resume.getVersion() + 1);
         resumeMapper.updateById(resume);
+        if (req.getContent() != null && !req.getContent().equals(originalContent)) {
+            invalidateResumeVector(id);
+        }
         String saved = summaryStore.load(id);
         log.info("Resume updated id={}, version={}, contentChars={}", id, resume.getVersion(), saved.length());
         return toVO(resume, saved);
@@ -466,6 +481,17 @@ public class ResumeService {
         return record;
     }
 
+    private void invalidateResumeVector(Long resumeId) {
+        ResumeSemanticVector vector = resumeSemanticVectorMapper.selectOne(
+                new LambdaQueryWrapper<ResumeSemanticVector>()
+                        .eq(ResumeSemanticVector::getResumeId, resumeId)
+                        .last("LIMIT 1"));
+        if (vector != null) {
+            vector.setModifiedFlag(1);
+            resumeSemanticVectorMapper.updateById(vector);
+        }
+    }
+
     private void deletePhysicalFile(String filePath) {
         try {
             Files.deleteIfExists(resolveFilePath(filePath));
@@ -502,6 +528,7 @@ public class ResumeService {
         vo.setSourceType(resume.getSourceType() == null ? SOURCE_MANUAL : resume.getSourceType());
         vo.setContent(content);
         vo.setPhotoUrl(ResumePhotoService.photoUrl(resume.getId(), resume.getPhotoPath()));
+        vo.setJobIntention(resume.getJobIntention() == null ? "" : resume.getJobIntention());
         vo.setUpdatedAt(resume.getUpdatedAt() == null ? null : resume.getUpdatedAt().format(FMT));
         return vo;
     }

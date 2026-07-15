@@ -40,7 +40,8 @@ class ResumeExportServiceTest {
         byte[] pdf = service.exportPdf("简历导出测试", content);
         try (PDDocument doc = Loader.loadPDF(pdf)) {
             String text = new PDFTextStripper().getText(doc);
-            boolean hasHan = text.chars().anyMatch(ch -> Character.UnicodeScript.of(ch) == Character.UnicodeScript.HAN);
+            boolean hasHan = text.chars().anyMatch(ch ->
+                    Character.UnicodeScript.of(ch) == Character.UnicodeScript.HAN);
             assertTrue(hasHan,
                     "No CJK characters in PDF — install fonts-noto-cjk / fonts-wqy-zenhei, or embed a font under /fonts/: " + text);
             assertTrue(text.contains("张三"), text);
@@ -51,5 +52,15 @@ class ResumeExportServiceTest {
             assertTrue(text.contains("青春") || text.contains("春"), "radical should map: " + text);
             assertTrue(text.contains("*") || text.contains("重点"), text);
         }
+    }
+
+    @Test
+    void exportDocx_andText_notEmpty() throws Exception {
+        byte[] docx = service.exportDocx("标题", "正文一行");
+        assertTrue(docx.length > 100);
+        byte[] textBytes = service.exportText("标题", "正文");
+        String text = new String(textBytes);
+        assertTrue(text.contains("标题"));
+        assertTrue(text.contains("正文"));
     }
 }

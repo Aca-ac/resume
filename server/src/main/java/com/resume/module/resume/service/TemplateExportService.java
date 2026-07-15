@@ -82,7 +82,7 @@ public class TemplateExportService {
         vo.setTemplateId(templateId);
         vo.setFormat(normalized);
         vo.setFilename(downloadFilename);
-        vo.setDownloadUrl("/api/v1/resumes/exports/" + stored.exportId() + "/download");
+        vo.setDownloadUrl("/v1/resumes/exports/" + stored.exportId() + "/download");
         vo.setExpiresAt(exportStorageService.formatExpiresAt(stored.expiresAt()));
         log.info("Export job created exportId={}, resumeId={}, template={}", stored.exportId(), resumeId, template.getName());
         return vo;
@@ -121,6 +121,7 @@ public class TemplateExportService {
                 .name(pickName(user))
                 .phone(user == null ? "" : nullToEmpty(user.getPhone()))
                 .email(user == null ? "" : nullToEmpty(user.getEmail()))
+                .jobIntention(nullToEmpty(resume.getJobIntention()))
                 .education(sectionContent(details, SECTION_EDUCATION))
                 .workExperience(sectionContent(details, SECTION_WORK))
                 .project(sectionContent(details, SECTION_PROJECT))
