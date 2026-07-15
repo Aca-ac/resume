@@ -43,6 +43,15 @@ class Request {
                 if (token && config.headers) {
                     config.headers.Authorization = `Bearer ${token}`
                 }
+                // baseURL is '/api' — strip leading /api from url to avoid /api/api/...
+                if (typeof config.url === 'string') {
+                    const u = config.url.trim()
+                    if (u.startsWith('/api/')) {
+                        config.url = u.slice(4)
+                    } else if (u.startsWith('api/')) {
+                        config.url = '/' + u.slice(4)
+                    }
+                }
                 return config
             },
             (error) => {

@@ -169,7 +169,7 @@ public class TemplateService {
         entity.setName(req.getName().trim());
         entity.setCategory(req.getCategory().trim());
         entity.setPreviewUrl(blankToNull(req.getPreviewUrl()));
-        entity.setTemplatePath(req.getTemplatePath().trim());
+        entity.setTemplatePath(normalizeTemplatePath(req.getTemplatePath()));
         entity.setApplicableScene(blankToNull(req.getApplicableScene()));
     }
 
@@ -177,19 +177,36 @@ public class TemplateService {
         return v == null || v.isBlank() ? null : v.trim();
     }
 
-    private static int parseYears(String workYears) {
+    /** Only allow colocated resume templates under classpath templates/resumes/**.docx. */
+    static String normalizeTemplatePath(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new BusinessException(400, "templatePath 不能为空");
+        }
+        String path = raw.trim().replace('\\', '/');
+        if (path.contains("..")) {
+            throw new BusinessException(400, "templatePath 非法");
+        }
+        String relative = path.startsWith("/") ? path.substring(1) : path;
+        if (!relative.startsWith("templates/resumes/") || !relative.toLowerCase(Locale.ROOT).endsWith(".docx")) {
+            throw new BusinessException(400, "templatePath 必须形如 /templates/resumes/{style}/template.docx");
+        }
+        return path.startsWith("/") ? path : "/" + path;
+    }
+
+    /** First integer only — e.g. "3-5年" → 3, not 35. */
+    static int parseYears(String workYears) {
         if (workYears == null || workYears.isBlank()) {
             return 0;
         }
         if (workYears.contains("应届") || workYears.contains("无")) {
             return 0;
         }
-        String digits = workYears.replaceAll("[^0-9]", "");
-        if (digits.isEmpty()) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(\\d+)").matcher(workYears);
+        if (!matcher.find()) {
             return 0;
         }
         try {
-            return Integer.parseInt(digits);
+            return Integer.parseInt(matcher.group(1));
         } catch (NumberFormatException e) {
             return 0;
         }
