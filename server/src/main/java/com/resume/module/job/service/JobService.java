@@ -17,8 +17,10 @@ import com.resume.module.job.dto.JobVO;
 import com.resume.module.job.dto.OwnerVO;
 import com.resume.module.job.dto.PageResult;
 import com.resume.module.job.entity.JobComment;
+import com.resume.module.job.entity.JobSemanticVector;
 import com.resume.module.job.entity.TargetJob;
 import com.resume.module.job.mapper.JobCommentMapper;
+import com.resume.module.job.mapper.JobSemanticVectorMapper;
 import com.resume.module.job.mapper.TargetJobMapper;
 import com.resume.user_identify.entity.User;
 import com.resume.user_identify.mapper.UserMapper;
@@ -54,6 +56,7 @@ public class JobService {
 
     private final TargetJobMapper targetJobMapper;
     private final JobCommentMapper jobCommentMapper;
+    private final JobSemanticVectorMapper jobSemanticVectorMapper;
     private final UserMapper userMapper;
     private final ObjectMapper objectMapper;
     private final ResourceLoader resourceLoader;
@@ -133,6 +136,8 @@ public class JobService {
             throw new BusinessException(403, "无权修改该岗位");
         }
 
+        String originalJdContent = job.getJdContent();
+
         if (request.getJobName() != null && !request.getJobName().isBlank()) {
             job.setJobName(request.getJobName().trim());
         }
@@ -142,7 +147,22 @@ public class JobService {
 
         targetJobMapper.updateById(job);
 
+        if (request.getJdContent() != null && !request.getJdContent().equals(originalJdContent)) {
+            invalidateJobVector(jobId);
+        }
+
         return toVO(job);
+    }
+
+    private void invalidateJobVector(Long jobId) {
+        JobSemanticVector vector = jobSemanticVectorMapper.selectOne(
+                new LambdaQueryWrapper<JobSemanticVector>()
+                        .eq(JobSemanticVector::getJobId, jobId)
+                        .last("LIMIT 1"));
+        if (vector != null) {
+            vector.setModifiedFlag(1);
+            jobSemanticVectorMapper.updateById(vector);
+        }
     }
 
     @Transactional
