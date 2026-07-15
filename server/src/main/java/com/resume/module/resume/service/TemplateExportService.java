@@ -121,6 +121,7 @@ public class TemplateExportService {
                 .name(pickName(user))
                 .phone(user == null ? "" : nullToEmpty(user.getPhone()))
                 .email(user == null ? "" : nullToEmpty(user.getEmail()))
+                .jobIntention(nullToEmpty(resume.getJobIntention()))
                 .education(sectionContent(details, SECTION_EDUCATION))
                 .workExperience(sectionContent(details, SECTION_WORK))
                 .project(sectionContent(details, SECTION_PROJECT))

@@ -14,6 +14,8 @@ public class Resume {
     private String title;
     /** 一寸照，相对 uploads/resumes/ 的路径，如 photos/xxx.jpg */
     private String photoPath;
+    /** 求职意向，模板占位符 {{jobIntention}} */
+    private String jobIntention;
     /** MANUAL=在线新建 IMPORT=文件导入 */
     private String sourceType;
     /** 每次保存 +1，用于版本追踪 */

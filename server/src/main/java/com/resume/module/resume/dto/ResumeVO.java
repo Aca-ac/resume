@@ -10,5 +10,7 @@ public class ResumeVO {
     private String content;
     /** 有照片时：/api/v1/resumes/{id}/photo */
     private String photoUrl;
+    /** 求职意向 */
+    private String jobIntention;
     private String updatedAt;
 }

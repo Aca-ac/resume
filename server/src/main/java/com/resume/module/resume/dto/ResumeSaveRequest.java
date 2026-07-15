@@ -6,4 +6,5 @@ import lombok.Data;
 public class ResumeSaveRequest {
     private String title;
     private String content;
+    private String jobIntention;
 }

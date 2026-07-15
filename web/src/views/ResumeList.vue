@@ -36,10 +36,16 @@
           </template>
         </el-table-column>
         <el-table-column prop="updatedAt" label="更新时间" width="160" />
-        <el-table-column label="操作" width="400" fixed="right">
+        <el-table-column label="操作" width="520" fixed="right">
           <template #default="{ row }">
             <el-button link class="action-btn" @click="$router.push(`/resumes/${row.id}/edit`)">
               编辑
+            </el-button>
+            <el-button link class="action-btn" @click="$router.push(`/resumes/${row.id}/template-edit`)">
+              模板编辑
+            </el-button>
+            <el-button link type="primary" class="action-btn" @click="goTemplateExport(row.id)">
+              模板导出
             </el-button>
             <el-button link type="primary" class="action-btn" @click="$router.push(`/resumes/${row.id}/optimize`)">
               ✨ 优化
@@ -86,6 +92,10 @@ async function onDelete(id: number) {
   });
   await store.remove(id);
   ElMessage.success("已删除");
+}
+
+function goTemplateExport(id: number) {
+  router.push({ path: "/templates", query: { resumeId: String(id) } });
 }
 
 async function onExport(id: number) {

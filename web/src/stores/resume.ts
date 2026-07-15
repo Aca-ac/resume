@@ -6,6 +6,7 @@ export interface ResumeItem {
   title: string;
   sourceType?: string;
   content: string;
+  jobIntention?: string;
   /** 有照片时返回，如 /api/v1/resumes/1/photo */
   photoUrl?: string;
   updatedAt?: string;

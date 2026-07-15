@@ -73,6 +73,10 @@ public class ResumeService {
         resume.setSourceType(SOURCE_MANUAL);
         resume.setVersion(1);
         resumeMapper.insert(resume);
+        if (req.getJobIntention() != null) {
+            resume.setJobIntention(req.getJobIntention().trim());
+            resumeMapper.updateById(resume);
+        }
         String content = defaultContent(req.getContent());
         summaryStore.save(resume.getId(), content);
         return toVO(resume, summaryStore.load(resume.getId()));
@@ -125,8 +129,12 @@ public class ResumeService {
             summaryStore.save(id, req.getContent());
             touched = true;
         }
+        if (req.getJobIntention() != null) {
+            resume.setJobIntention(req.getJobIntention().trim());
+            touched = true;
+        }
         if (!touched) {
-            throw new BusinessException(400, "请提供 title 或 content 以更新简历");
+            throw new BusinessException(400, "请提供 title、content 或 jobIntention 以更新简历");
         }
         resume.setVersion(resume.getVersion() == null ? 1 : resume.getVersion() + 1);
         resumeMapper.updateById(resume);
@@ -502,6 +510,7 @@ public class ResumeService {
         vo.setSourceType(resume.getSourceType() == null ? SOURCE_MANUAL : resume.getSourceType());
         vo.setContent(content);
         vo.setPhotoUrl(ResumePhotoService.photoUrl(resume.getId(), resume.getPhotoPath()));
+        vo.setJobIntention(resume.getJobIntention() == null ? "" : resume.getJobIntention());
         vo.setUpdatedAt(resume.getUpdatedAt() == null ? null : resume.getUpdatedAt().format(FMT));
         return vo;
     }

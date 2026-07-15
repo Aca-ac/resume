@@ -15,6 +15,8 @@ public class TemplateRenderData {
     private String phone;
     /** {{email}} 邮箱 */
     private String email;
+    /** {{jobIntention}} 求职意向 */
+    private String jobIntention;
     /** {{education}} 教育经历，section_type=EDUCATION */
     private String education;
     /** {{workExperience}} 工作经历，section_type=WORK_EXPERIENCE */

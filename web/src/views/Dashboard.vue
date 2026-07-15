@@ -26,8 +26,8 @@
               @click="handleCardClick"
           >
             <div class="card-image-wrapper">
-              <img :src="item.img" alt="简历模板预览" class="card-image" draggable="false" />
-              <div class="card-tip">仅预览 · 暂未开放使用</div>
+              <img :src="item.img" :alt="item.name" class="card-image" draggable="false" />
+              <div class="card-tip">{{ item.name }}</div>
             </div>
           </div>
         </div>
@@ -38,7 +38,7 @@
 
         <div class="carousel-dots">
           <span
-              v-for="(_, index) in templateImgs.length"
+              v-for="(_, index) in templateCards.length"
               :key="index"
               class="dot"
               :class="{ active: index === currentIndex }"
@@ -59,6 +59,7 @@ import {
   ArrowRight
 } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
+import { previewSrc } from '@/api/template';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -66,16 +67,12 @@ const authStore = useAuthStore();
 const currentIndex = ref(0);
 let autoplayTimer: ReturnType<typeof setInterval> | null = null;
 
-const templateImgs = [
-  new URL('@/assets/resumepicture/picture001.jpg', import.meta.url).href,
-  new URL('@/assets/resumepicture/picture002.jpg', import.meta.url).href,
-  new URL('@/assets/resumepicture/picture003.jpg', import.meta.url).href,
-  new URL('@/assets/resumepicture/picture004.jpg', import.meta.url).href,
-  new URL('@/assets/resumepicture/picture005.jpg', import.meta.url).href,
-  new URL('@/assets/resumepicture/picture006.jpg', import.meta.url).href,
-  new URL('@/assets/resumepicture/picture007.jpg', import.meta.url).href,
-  new URL('@/assets/resumepicture/picture008.jpg', import.meta.url).href,
-  new URL('@/assets/resumepicture/picture009.jpg', import.meta.url).href,
+/** 与模板广场一致：classpath 四套 preview.png */
+const templateCards = [
+  { name: '简约风格', img: previewSrc('/templates/resumes/simple/preview.png') },
+  { name: '专业风格', img: previewSrc('/templates/resumes/professional/preview.png') },
+  { name: '创意风格', img: previewSrc('/templates/resumes/creative/preview.png') },
+  { name: '学术风格', img: previewSrc('/templates/resumes/academic/preview.png') },
 ];
 
 const handleCardClick = () => {
@@ -83,25 +80,25 @@ const handleCardClick = () => {
     ElMessage.warning('请先登录查看完整模板');
     router.push('/login');
   } else {
-    ElMessage.info('模板功能即将开放，敬请期待');
+    router.push('/templates');
   }
 };
 
 const goToSlide = (index: number) => currentIndex.value = index;
 const prevSlide = () => {
-  currentIndex.value = currentIndex.value === 0 ? templateImgs.length - 1 : currentIndex.value - 1;
+  currentIndex.value = currentIndex.value === 0 ? templateCards.length - 1 : currentIndex.value - 1;
 };
 const nextSlide = () => {
-  currentIndex.value = currentIndex.value === templateImgs.length - 1 ? 0 : currentIndex.value + 1;
+  currentIndex.value = currentIndex.value === templateCards.length - 1 ? 0 : currentIndex.value + 1;
 };
 
 const visibleCards = computed(() => {
-  const prev = currentIndex.value === 0 ? templateImgs.length - 1 : currentIndex.value - 1;
-  const next = currentIndex.value === templateImgs.length - 1 ? 0 : currentIndex.value + 1;
+  const prev = currentIndex.value === 0 ? templateCards.length - 1 : currentIndex.value - 1;
+  const next = currentIndex.value === templateCards.length - 1 ? 0 : currentIndex.value + 1;
   return [
-    { img: templateImgs[prev], position: 'prev' },
-    { img: templateImgs[currentIndex.value], position: 'active' },
-    { img: templateImgs[next], position: 'next' },
+    { ...templateCards[prev], position: 'prev' },
+    { ...templateCards[currentIndex.value], position: 'active' },
+    { ...templateCards[next], position: 'next' },
   ];
 });
 const getCardClass = (index: number) => visibleCards.value[index].position;
@@ -194,7 +191,8 @@ onUnmounted(() => stopAutoplay());
 .carousel-card .card-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: #f5f5f5;
   pointer-events: none;
 }
 .carousel-card .card-tip {
