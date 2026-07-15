@@ -149,6 +149,13 @@ const router = createRouter({
           meta: { requiresAuth: true, title: '岗位匹配' }
         },
 
+        {
+          path: '/match-recommend',
+          name: 'MatchRecommend',
+          component: () => import('@/views/MatchRecommend.vue'),
+          meta: { requiresAuth: true, title: '岗位匹配推荐' }
+        },
+
         // ===== 面试 =====
         {
           path: "interview/start",

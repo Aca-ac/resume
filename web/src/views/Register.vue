@@ -1,81 +1,138 @@
 <!-- src/views/Register.vue -->
 <template>
-  <div class="auth-container">
-    <!-- 动态背景层 -->
-    <div class="bg-layer">
+  <div class="auth-container" role="main" aria-labelledby="register-title">
+    <!-- 动态背景层 - 纯装饰，对辅助技术隐藏 -->
+    <div class="bg-layer" aria-hidden="true">
       <div class="bg-gradient"></div>
       <div class="bubble" v-for="i in 12" :key="i" :style="getBubbleStyle(i)"></div>
     </div>
 
     <div class="auth-card">
       <!-- 左侧图片区域 -->
-      <div class="auth-left">
-        <img :src="registerImage" alt="注册插图" class="auth-image" />
+      <div class="auth-left" aria-hidden="true">
+        <img
+            :src="registerImage"
+            alt="注册插图：开启简历优化之旅"
+            class="auth-image"
+            decoding="async"
+            loading="lazy"
+        />
       </div>
 
-      <!-- 右侧表单区域 - 保留所有原有功能 -->
+      <!-- 右侧表单区域 -->
       <div class="auth-right">
-        <h1 class="auth-title">注册账号</h1>
+        <h1 id="register-title" class="auth-title">注册账号</h1>
         <p class="auth-subtitle">使用邮箱注册，开启简历优化之旅</p>
 
-        <!-- 完全保留原有的表单逻辑 -->
         <el-form
             ref="registerFormRef"
             :model="registerForm"
             :rules="rules"
             label-width="0"
             @submit.prevent="handleRegister"
+            novalidate
         >
+          <!-- 邮箱 -->
           <el-form-item prop="email">
+            <label for="email-input" class="sr-only">邮箱地址</label>
             <el-input
+                id="email-input"
                 v-model="registerForm.email"
                 placeholder="请输入邮箱"
                 size="large"
                 prefix-icon="Message"
                 autocomplete="email"
+                type="email"
+                aria-describedby="email-error email-hint"
+                aria-required="true"
+                @keydown.enter.prevent="handleRegister"
+                @input="handleEmailInput"
             />
+            <div id="email-hint" class="hint-text">请输入有效的邮箱地址</div>
+            <div id="email-error" role="alert" aria-live="polite">
+              <span v-if="emailError" class="error-message">{{ emailError }}</span>
+            </div>
           </el-form-item>
 
+          <!-- 验证码 -->
           <el-form-item prop="code">
+            <label for="code-input" class="sr-only">验证码</label>
             <div class="code-input-wrapper">
               <el-input
+                  id="code-input"
                   v-model="registerForm.code"
                   placeholder="请输入验证码"
                   size="large"
                   prefix-icon="Lock"
                   maxlength="6"
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  aria-describedby="code-error code-hint"
+                  aria-required="true"
+                  @keydown.enter.prevent="handleRegister"
+                  @input="handleCodeInput"
               />
               <el-button
                   class="code-btn"
                   size="large"
                   :disabled="codeCountdown > 0 || !isEmailValid"
                   @click="handleSendCode"
+                  :aria-busy="codeCountdown > 0"
+                  :aria-label="codeCountdown > 0 ? `验证码已发送，剩余 ${codeCountdown} 秒` : '获取验证码'"
               >
                 {{ codeCountdown > 0 ? `${codeCountdown}s` : '获取验证码' }}
               </el-button>
             </div>
+            <div id="code-hint" class="hint-text">6位数字验证码</div>
+            <div id="code-error" role="alert" aria-live="polite">
+              <span v-if="codeError" class="error-message">{{ codeError }}</span>
+            </div>
           </el-form-item>
 
+          <!-- 密码 -->
           <el-form-item prop="password">
+            <label for="password-input" class="sr-only">密码</label>
             <el-input
+                id="password-input"
                 v-model="registerForm.password"
                 type="password"
                 placeholder="请输入密码（6-20位，含字母和数字）"
                 size="large"
                 prefix-icon="Lock"
                 show-password
+                autocomplete="new-password"
+                aria-describedby="password-error password-hint"
+                aria-required="true"
+                @keydown.enter.prevent="handleRegister"
+                @input="handlePasswordInput"
             />
+            <div id="password-hint" class="hint-text">密码需6-20位，同时包含字母和数字</div>
+            <div id="password-error" role="alert" aria-live="polite">
+              <span v-if="passwordError" class="error-message">{{ passwordError }}</span>
+            </div>
           </el-form-item>
 
+          <!-- 确认密码 -->
           <el-form-item prop="confirmPassword">
+            <label for="confirm-password-input" class="sr-only">确认密码</label>
             <el-input
+                id="confirm-password-input"
                 v-model="registerForm.confirmPassword"
                 type="password"
                 placeholder="请再次输入密码"
                 size="large"
                 prefix-icon="Lock"
                 show-password
+                autocomplete="new-password"
+                aria-describedby="confirm-password-error"
+                aria-required="true"
+                @keydown.enter.prevent="handleRegister"
+                @input="handleConfirmPasswordInput"
             />
+            <div id="confirm-password-error" role="alert" aria-live="polite">
+              <span v-if="confirmPasswordError" class="error-message">{{ confirmPasswordError }}</span>
+            </div>
           </el-form-item>
 
           <el-button
@@ -84,14 +141,24 @@
               class="auth-btn"
               :loading="loading"
               @click="handleRegister"
+              :aria-busy="loading"
+              :disabled="loading"
           >
-            注册
+            {{ loading ? '注册中...' : '注册' }}
           </el-button>
         </el-form>
 
         <div class="auth-footer">
           已有账号？
-          <router-link to="/login" class="auth-link">立即登录</router-link>
+          <router-link to="/login" class="auth-link" aria-label="立即登录已有账号">
+            立即登录
+          </router-link>
+        </div>
+
+        <!-- 注册状态提示 -->
+        <div role="status" aria-live="polite" class="sr-only">
+          {{ loading ? '正在注册，请稍候' : '' }}
+          {{ codeCountdown > 0 ? `验证码已发送，剩余 ${codeCountdown} 秒` : '' }}
         </div>
       </div>
     </div>
@@ -99,8 +166,7 @@
 </template>
 
 <script setup lang="ts">
-// 完全保留原有的 script 逻辑，不做任何修改
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElForm, ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
@@ -113,7 +179,13 @@ const loading = ref(false)
 const codeCountdown = ref(0)
 let countdownTimer: number | null = null
 
-// 左侧图片 - 请替换为你的实际图片路径
+// 手动错误状态
+const emailError = ref('')
+const codeError = ref('')
+const passwordError = ref('')
+const confirmPasswordError = ref('')
+
+// 左侧图片
 const registerImage = new URL('@/assets/resumepicture/picture011.jpg', import.meta.url).href
 
 const registerForm = ref({
@@ -128,6 +200,92 @@ const isEmailValid = computed(() => {
   return emailRegex.test(registerForm.value.email)
 })
 
+// 实时验证函数
+const validateEmail = (value: string) => {
+  if (!value) {
+    emailError.value = '请输入邮箱地址'
+    return false
+  }
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+  if (!emailRegex.test(value)) {
+    emailError.value = '请输入正确的邮箱格式（例如：user@example.com）'
+    return false
+  }
+  emailError.value = ''
+  return true
+}
+
+const validateCode = (value: string) => {
+  if (!value) {
+    codeError.value = '请输入验证码'
+    return false
+  }
+  if (!/^\d{6}$/.test(value)) {
+    codeError.value = '验证码为6位数字'
+    return false
+  }
+  codeError.value = ''
+  return true
+}
+
+const validatePassword = (value: string) => {
+  if (!value) {
+    passwordError.value = '请输入密码'
+    return false
+  }
+  if (value.length < 6 || value.length > 20) {
+    passwordError.value = '密码长度必须在6-20位之间'
+    return false
+  }
+  if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,20}$/.test(value)) {
+    passwordError.value = '密码需同时包含字母和数字'
+    return false
+  }
+  passwordError.value = ''
+  return true
+}
+
+const validateConfirmPassword = (value: string) => {
+  if (!value) {
+    confirmPasswordError.value = '请再次输入密码'
+    return false
+  }
+  if (value !== registerForm.value.password) {
+    confirmPasswordError.value = '两次密码输入不一致'
+    return false
+  }
+  confirmPasswordError.value = ''
+  return true
+}
+
+// 输入处理函数
+const handleEmailInput = (value: string) => {
+  if (value) validateEmail(value)
+}
+
+const handleCodeInput = (value: string) => {
+  // 只允许数字输入
+  const numericValue = value.replace(/\D/g, '')
+  if (value !== numericValue) {
+    registerForm.value.code = numericValue
+  }
+  if (numericValue) validateCode(numericValue)
+}
+
+const handlePasswordInput = (value: string) => {
+  if (value) validatePassword(value)
+  // 如果确认密码已有值，也验证它
+  if (registerForm.value.confirmPassword) {
+    validateConfirmPassword(registerForm.value.confirmPassword)
+  }
+}
+
+const handleConfirmPasswordInput = (value: string) => {
+  if (value || registerForm.value.password) {
+    validateConfirmPassword(value)
+  }
+}
+
 const rules = {
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
@@ -135,7 +293,8 @@ const rules = {
   ],
   code: [
     { required: true, message: '请输入验证码', trigger: 'blur' },
-    { min: 6, max: 6, message: '验证码为6位数字', trigger: 'blur' }
+    { min: 6, max: 6, message: '验证码为6位数字', trigger: 'blur' },
+    { pattern: /^\d{6}$/, message: '验证码必须为6位数字', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -164,11 +323,16 @@ const rules = {
 const handleSendCode = async () => {
   if (!isEmailValid.value) {
     ElMessage.warning('请输入正确的邮箱格式')
+    document.getElementById('email-input')?.focus()
     return
   }
 
+  // 清空旧的验证码错误
+  codeError.value = ''
+
   const result = await authStore.sendCode(registerForm.value.email)
   if (result.success) {
+    ElMessage.success('验证码已发送到您的邮箱')
     codeCountdown.value = 60
     if (countdownTimer) {
       clearInterval(countdownTimer)
@@ -180,11 +344,37 @@ const handleSendCode = async () => {
         countdownTimer = null
       }
     }, 1000)
+    // 聚焦到验证码输入框
+    nextTick(() => {
+      document.getElementById('code-input')?.focus()
+    })
+  } else {
+    ElMessage.error(result.message || '发送验证码失败，请稍后重试')
   }
 }
 
 const handleRegister = async () => {
   if (!registerFormRef.value) return
+
+  // 手动验证所有字段
+  const isEmailValid = validateEmail(registerForm.value.email)
+  const isCodeValid = validateCode(registerForm.value.code)
+  const isPasswordValid = validatePassword(registerForm.value.password)
+  const isConfirmValid = validateConfirmPassword(registerForm.value.confirmPassword)
+
+  if (!isEmailValid || !isCodeValid || !isPasswordValid || !isConfirmValid) {
+    // 触发表单验证以显示所有错误
+    try {
+      await registerFormRef.value.validate()
+    } catch {
+      // 聚焦到第一个错误字段
+      const firstError = document.querySelector('.el-form-item.is-error input, .el-form-item.is-error .el-input__inner')
+      if (firstError) {
+        (firstError as HTMLElement).focus()
+      }
+    }
+    return
+  }
 
   await registerFormRef.value.validate(async (valid) => {
     if (!valid) return
@@ -198,12 +388,38 @@ const handleRegister = async () => {
       )
 
       if (result.success) {
+        ElMessage.success('注册成功！欢迎加入')
         router.push('/dashboard')
+      } else {
+        ElMessage.error(result.message || '注册失败，请检查信息后重试')
+        // 聚焦到邮箱输入框以便用户重试
+        document.getElementById('email-input')?.focus()
       }
+    } catch (error: any) {
+      ElMessage.error(error.message || '注册过程中发生错误，请稍后重试')
     } finally {
       loading.value = false
     }
   })
+}
+
+// 键盘快捷键：按 Escape 清空当前聚焦的输入
+const handleKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') {
+    const target = event.target as HTMLInputElement
+    if (target && target.tagName === 'INPUT') {
+      const field = target.id.replace('-input', '')
+      const formKey = field === 'confirmPassword' ? 'confirmPassword' : field
+      if (formKey in registerForm.value) {
+        registerForm.value[formKey as keyof typeof registerForm.value] = ''
+        // 清除对应的错误
+        const errorKey = field === 'confirmPassword' ? 'confirmPasswordError' : `${field}Error`
+        if (errorKey in this) {
+          // 使用 ref 方式清除
+        }
+      }
+    }
+  }
 }
 
 // ===== 气泡动画 =====
@@ -223,9 +439,30 @@ const getBubbleStyle = (index: number) => {
     background: `radial-gradient(circle, rgba(100, 163, 134, ${opacity * 0.5}), rgba(205, 226, 232, ${opacity * 0.3}))`
   }
 }
+
+onUnmounted(() => {
+  if (countdownTimer) {
+    clearInterval(countdownTimer)
+    countdownTimer = null
+  }
+  document.removeEventListener('keydown', handleKeydown)
+})
 </script>
 
 <style scoped>
+/* ===== 屏幕阅读器专用 ===== */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  border: 0 !important;
+  white-space: nowrap !important;
+}
+
 .auth-container {
   position: relative;
   display: flex;
@@ -338,18 +575,19 @@ const getBubbleStyle = (index: number) => {
 .auth-title {
   font-size: 26px;
   font-weight: 700;
-  color: #2c4d3d;
+  color: #1a3a2a;
   text-align: center;
   margin: 0 0 6px;
 }
 
 .auth-subtitle {
   font-size: 14px;
-  color: #6b8a7a;
+  color: #4a6a5a;
   text-align: center;
   margin: 0 0 30px;
 }
 
+/* ===== 验证码输入区域 ===== */
 .code-input-wrapper {
   display: flex;
   gap: 12px;
@@ -363,51 +601,83 @@ const getBubbleStyle = (index: number) => {
   flex-shrink: 0;
   width: 120px;
   background: rgba(232, 240, 236, 0.7);
-  border: none;
-  color: #2c4d3d;
+  border: 1px solid rgba(100, 163, 134, 0.2);
+  color: #1a3a2a;
   font-size: 14px;
   border-radius: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 .code-btn:hover:not(:disabled) {
-  background: rgba(212, 228, 220, 0.8);
+  background: rgba(200, 220, 210, 0.8);
+  border-color: rgba(45, 107, 79, 0.3);
+}
+.code-btn:focus-visible {
+  outline: 3px solid #2d6b4f;
+  outline-offset: 2px;
 }
 .code-btn:disabled {
-  color: #9ab0a4;
+  color: #8aaa9a;
   cursor: not-allowed;
+  opacity: 0.6;
 }
 
+/* ===== 登录按钮 - 增强对比度 ===== */
 .auth-btn {
   width: 100%;
   margin-top: 4px;
-  background: linear-gradient(135deg, #64A386 0%, #4c8a6e 100%);
+  background: linear-gradient(135deg, #2d6b4f 0%, #1a4d36 100%);
   border: none;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
   height: 48px;
   border-radius: 10px;
-  color: #fff;
+  color: #ffffff;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s, box-shadow 0.2s;
 }
-.auth-btn:hover {
-  opacity: 0.9;
+.auth-btn:hover:not(:disabled) {
+  opacity: 0.92;
+  box-shadow: 0 4px 16px rgba(45, 107, 79, 0.35);
+}
+.auth-btn:focus-visible {
+  outline: 3px solid #2d6b4f;
+  outline-offset: 2px;
+}
+.auth-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.auth-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .auth-footer {
   text-align: center;
   margin-top: 18px;
   font-size: 14px;
-  color: #6b8a7a;
+  color: #4a6a5a;
 }
 
 .auth-link {
-  color: #64A386;
-  text-decoration: none;
+  color: #2d6b4f;
+  text-decoration: underline;
+  text-underline-offset: 2px;
   font-weight: 600;
 }
-.auth-link:hover {
-  text-decoration: underline;
+.auth-link:hover,
+.auth-link:focus {
+  color: #1a4d36;
+  text-decoration-thickness: 2px;
+}
+.auth-link:focus-visible {
+  outline: 3px solid #2d6b4f;
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
-/* ===== 输入框样式 ===== */
+/* ===== 输入框样式 - 增强对比度 ===== */
 :deep(.el-form-item) {
   margin-bottom: 18px;
 }
@@ -415,14 +685,38 @@ const getBubbleStyle = (index: number) => {
 :deep(.el-input__wrapper) {
   border-radius: 10px;
   height: 48px;
-  box-shadow: 0 0 0 1px rgba(100, 163, 134, 0.15);
-  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 0 1px #8aaa9a;
+  background: rgba(255, 255, 255, 0.85);
+  transition: box-shadow 0.2s;
 }
 :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 2px rgba(100, 163, 134, 0.30);
+  box-shadow: 0 0 0 3px #2d6b4f;
 }
 :deep(.el-form-item.is-error .el-input__wrapper) {
-  box-shadow: 0 0 0 2px rgba(245, 108, 108, 0.25);
+  box-shadow: 0 0 0 2px #c62828;
+}
+:deep(.el-input__inner) {
+  color: #1a2a1f;
+  font-size: 15px;
+}
+:deep(.el-input__wrapper:hover:not(.is-disabled)) {
+  box-shadow: 0 0 0 2px rgba(45, 107, 79, 0.3);
+}
+
+/* ===== 错误信息和提示 ===== */
+.error-message {
+  display: block;
+  color: #c62828;
+  font-size: 13px;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.hint-text {
+  display: block;
+  color: #4a6b5a;
+  font-size: 13px;
+  margin-top: 4px;
 }
 
 /* ===== 响应式适配 ===== */
@@ -444,6 +738,66 @@ const getBubbleStyle = (index: number) => {
   .auth-right {
     padding: 28px 24px;
   }
+
+  .code-btn {
+    width: 100px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-right {
+    padding: 20px 16px;
+  }
+
+  .auth-title {
+    font-size: 22px;
+  }
+
+  .auth-subtitle {
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+
+  .code-btn {
+    width: 80px;
+    font-size: 12px;
+  }
+
+  .code-input-wrapper {
+    gap: 8px;
+  }
+
+  :deep(.el-input__inner) {
+    font-size: 14px;
+  }
+  :deep(.el-input__wrapper) {
+    height: 42px;
+  }
+  :deep(.el-form-item) {
+    margin-bottom: 14px;
+  }
+
+  .auth-btn {
+    height: 42px;
+    font-size: 15px;
+  }
+}
+
+/* ===== 减少动画偏好 ===== */
+@media (prefers-reduced-motion: reduce) {
+  .bg-gradient {
+    animation: none;
+  }
+  .bubble {
+    animation: none !important;
+    display: none !important;
+  }
+  .auth-btn {
+    transition: none;
+  }
+  .code-btn {
+    transition: none;
+  }
 }
 </style>
-

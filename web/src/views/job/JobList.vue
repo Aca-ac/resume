@@ -1,15 +1,16 @@
+<!-- src/views/job/JobList.vue -->
 <template>
-  <div class="job-list-page">
+  <div class="job-list-page" role="main" aria-labelledby="page-title">
     <!-- 主视觉 -->
-    <section class="hero-section">
-      <h1 class="hero-title">🎯 我的目标岗位</h1>
+    <section class="hero-section" aria-label="页面标题区">
+      <h1 id="page-title" class="hero-title" tabindex="-1">🎯 我的目标岗位</h1>
       <p class="hero-subtitle">
         管理你的目标岗位，AI智能搜索补全JD，一键Fork社区优质岗位，打造专属求职清单。
       </p>
     </section>
 
     <!-- 操作栏 -->
-    <section class="toolbar-section">
+    <section class="toolbar-section" aria-label="搜索和操作工具栏">
       <div class="toolbar-left">
         <SearchForm
             ref="searchFormRef"
@@ -23,26 +24,48 @@
         />
       </div>
       <div class="toolbar-right">
-        <el-button type="primary" size="large" @click="goCreate">
-          <el-icon><Plus /></el-icon>
+        <el-button
+            type="primary"
+            size="large"
+            @click="goCreate"
+            aria-label="创建新岗位"
+        >
+          <el-icon aria-hidden="true"><Plus /></el-icon>
           创建岗位
         </el-button>
       </div>
     </section>
 
     <!-- 统计信息 -->
-    <section class="stats-section">
-      <span class="stats-text">共 <strong>{{ filteredJobs.length }}</strong> 个目标岗位</span>
-      <span v-if="keyword.trim()" class="stats-tag">
+    <section class="stats-section" aria-label="岗位统计信息">
+      <span class="stats-text" aria-live="polite">
+        共 <strong>{{ filteredJobs.length }}</strong> 个目标岗位
+      </span>
+      <span v-if="keyword.trim()" class="stats-tag" role="status">
         搜索: "{{ keyword }}"
-        <el-icon class="clear-tag" @click="handleClear"><Close /></el-icon>
+        <el-icon
+            class="clear-tag"
+            @click="handleClear"
+            aria-label="清除搜索关键词"
+            role="button"
+            tabindex="0"
+            @keydown.enter="handleClear"
+            @keydown.space.prevent="handleClear"
+        >
+          <Close />
+        </el-icon>
       </span>
     </section>
 
     <!-- 岗位列表 -->
-    <section v-loading="isLoading" class="job-grid-section">
+    <section
+        v-loading="isLoading"
+        class="job-grid-section"
+        :aria-busy="isLoading"
+        aria-label="岗位列表"
+    >
       <template v-if="!isLoading && filteredJobs && filteredJobs.length > 0">
-        <div class="job-grid">
+        <div class="job-grid" role="list" aria-label="岗位卡片列表">
           <JobCard
               v-for="job in paginatedJobs"
               :key="job.id"
@@ -60,40 +83,61 @@
               :total="filteredJobs.length"
               layout="prev, pager, next, total"
               @current-change="onPageChange"
+              aria-label="分页导航"
           />
         </div>
       </template>
 
-      <el-empty
+      <div
           v-else-if="!isLoading && (!filteredJobs || filteredJobs.length === 0)"
-          description="暂无目标岗位"
-          :image-size="120"
+          role="status"
+          aria-live="polite"
       >
-        <template #description>
-          <p style="color: #8a9ba8; margin-bottom: 12px;">
-            {{ keyword.trim() ? '未找到匹配的目标岗位' : '还没有创建任何目标岗位' }}
-          </p>
-          <p v-if="!keyword.trim()" style="color: #b0c4ce; font-size: 13px;">
-            💡 点击「创建岗位」开始添加，或去 <el-link type="primary" @click="goCommunity">岗位社区</el-link> 发现优质岗位
-          </p>
-          <p v-else style="color: #b0c4ce; font-size: 13px;">
-            💡 试试其他关键词，或 <el-link type="primary" @click="handleClear">清除搜索</el-link>
-          </p>
-        </template>
-        <el-button v-if="!keyword.trim()" type="primary" @click="goCreate">
-          <el-icon><Plus /></el-icon>
-          创建我的第一个岗位
-        </el-button>
-        <el-button v-else type="primary" plain @click="handleClear">
-          清除搜索
-        </el-button>
-      </el-empty>
+        <el-empty :description="emptyDescription" :image-size="120">
+          <template #description>
+            <p style="color: #8a9ba8; margin-bottom: 12px;">
+              {{ emptyMessage }}
+            </p>
+            <p v-if="!keyword.trim()" style="color: #b0c4ce; font-size: 13px;">
+              💡 点击「创建岗位」开始添加，或去
+              <el-link type="primary" @click="goCommunity" aria-label="前往岗位社区发现优质岗位">
+                岗位社区
+              </el-link>
+              发现优质岗位
+            </p>
+            <p v-else style="color: #b0c4ce; font-size: 13px;">
+              💡 试试其他关键词，或
+              <el-link type="primary" @click="handleClear" aria-label="清除搜索">
+                清除搜索
+              </el-link>
+            </p>
+          </template>
+          <el-button
+              v-if="!keyword.trim()"
+              type="primary"
+              @click="goCreate"
+              aria-label="创建我的第一个岗位"
+          >
+            <el-icon aria-hidden="true"><Plus /></el-icon>
+            创建我的第一个岗位
+          </el-button>
+          <el-button
+              v-else
+              type="primary"
+              plain
+              @click="handleClear"
+              aria-label="清除搜索"
+          >
+            清除搜索
+          </el-button>
+        </el-empty>
+      </div>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch, nextTick, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { Plus, Close } from '@element-plus/icons-vue';
 import { useJob } from '@/composables/useJob';
@@ -111,6 +155,18 @@ const pageSize = ref<number>(12);
 
 // 搜索表单引用
 const searchFormRef = ref<InstanceType<typeof SearchForm> | null>(null);
+
+// 页面标题引用
+const pageTitleRef = ref<HTMLElement>();
+
+// 空状态描述
+const emptyDescription = computed(() => {
+  return keyword.value.trim() ? '未找到匹配的目标岗位' : '暂无目标岗位';
+});
+
+const emptyMessage = computed(() => {
+  return keyword.value.trim() ? '未找到匹配的目标岗位' : '还没有创建任何目标岗位';
+});
 
 // 调试：监听 myJobs 变化
 watch(myJobs, (newVal) => {
@@ -151,6 +207,9 @@ async function loadJobs() {
     await refreshMyJobs();
     console.log('refreshMyJobs completed, myJobs:', myJobs.value);
     page.value = 1;
+    // 加载完成后聚焦到标题
+    await nextTick();
+    pageTitleRef.value?.focus();
   } catch (error) {
     console.error('loadJobs error:', error);
   }
@@ -183,6 +242,13 @@ function handleAISearch(value: string) {
 function handleClear() {
   keyword.value = '';
   page.value = 1;
+  // 清空后聚焦到搜索框
+  nextTick(() => {
+    const searchInput = document.querySelector('.search-form input') as HTMLInputElement;
+    if (searchInput) {
+      searchInput.focus();
+    }
+  });
 }
 
 /**
@@ -211,6 +277,25 @@ function goCommunity() {
  */
 function onPageChange(p: number) {
   page.value = p;
+  // 分页变化后滚动到列表顶部
+  const gridSection = document.querySelector('.job-grid-section');
+  if (gridSection) {
+    gridSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+/**
+ * 键盘事件：Ctrl+Enter 快速搜索
+ */
+function handleGlobalKeydown(event: KeyboardEvent) {
+  // Ctrl+K 或 Cmd+K 聚焦到搜索框
+  if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
+    event.preventDefault();
+    const searchInput = document.querySelector('.search-form input') as HTMLInputElement;
+    if (searchInput) {
+      searchInput.focus();
+    }
+  }
 }
 
 /**
@@ -223,6 +308,12 @@ defineExpose({
 onMounted(() => {
   console.log('JobList mounted, calling loadJobs');
   loadJobs();
+  document.addEventListener('keydown', handleGlobalKeydown);
+  document.title = '我的目标岗位 - 招聘管理系统';
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleGlobalKeydown);
 });
 </script>
 
@@ -253,6 +344,11 @@ onMounted(() => {
   font-weight: 600;
   color: #4a7a64;
   letter-spacing: 0.5px;
+}
+
+.hero-title:focus-visible {
+  outline: 2px solid #4a7a64;
+  outline-offset: 2px;
 }
 
 .hero-subtitle {
@@ -298,6 +394,11 @@ onMounted(() => {
   border-color: #558f73;
 }
 
+.toolbar-right .el-button:focus-visible {
+  outline: 2px solid #2d5a4a;
+  outline-offset: 2px;
+}
+
 /* ========== 统计信息 ========== */
 .stats-section {
   display: flex;
@@ -341,6 +442,12 @@ onMounted(() => {
   color: #e74c3c;
 }
 
+.clear-tag:focus-visible {
+  outline: 2px solid #4a7a64;
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+
 /* ========== 岗位网格 ========== */
 .job-grid-section {
   background: rgba(255, 255, 255, 0.6);
@@ -349,6 +456,11 @@ onMounted(() => {
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.4);
   min-height: 320px;
+}
+
+.job-grid-section:focus-visible {
+  outline: 2px solid #64A386;
+  outline-offset: 2px;
 }
 
 .job-grid {
@@ -374,6 +486,13 @@ onMounted(() => {
 .pagination-wrapper :deep(.el-pagination .btn-next) {
   background: rgba(255, 255, 255, 0.5);
   border-radius: 8px;
+}
+
+.pagination-wrapper :deep(.el-pagination .btn-prev:focus-visible),
+.pagination-wrapper :deep(.el-pagination .btn-next:focus-visible),
+.pagination-wrapper :deep(.el-pagination .el-pager li:focus-visible) {
+  outline: 2px solid #4a7a64;
+  outline-offset: 2px;
 }
 
 .pagination-wrapper :deep(.el-pagination .el-pager li) {
@@ -403,6 +522,17 @@ onMounted(() => {
 .job-grid-section :deep(.el-empty .el-button:hover) {
   background: #558f73;
   border-color: #558f73;
+}
+
+.job-grid-section :deep(.el-empty .el-button:focus-visible) {
+  outline: 2px solid #2d5a4a;
+  outline-offset: 2px;
+}
+
+.job-grid-section :deep(.el-link:focus-visible) {
+  outline: 2px solid #4a7a64;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* ========== 响应式 ========== */
@@ -447,6 +577,68 @@ onMounted(() => {
 
   .job-grid-section {
     padding: 16px;
+  }
+
+  .stats-section {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+/* ========== 高对比度模式 ========== */
+@media (prefers-contrast: high) {
+  .job-list-page {
+    background: #ffffff;
+  }
+
+  .hero-section {
+    background: #f5f5f5;
+    border-color: #000;
+  }
+
+  .hero-title {
+    color: #000;
+  }
+
+  .hero-subtitle {
+    color: #000;
+  }
+
+  .job-grid-section {
+    background: #ffffff;
+    border-color: #000;
+  }
+
+  .stats-tag {
+    background: #f0f0f0;
+    border: 1px solid #000;
+  }
+
+  .pagination-wrapper {
+    border-top-color: #000;
+  }
+}
+
+/* ========== 打印样式 ========== */
+@media print {
+  .job-list-page {
+    background: #fff;
+    padding: 20px;
+  }
+
+  .hero-section {
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+  }
+
+  .job-grid-section {
+    background: #fff;
+    border: 1px solid #ddd;
+  }
+
+  .toolbar-section {
+    display: none;
   }
 }
 </style>

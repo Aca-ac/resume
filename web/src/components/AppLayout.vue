@@ -78,6 +78,13 @@
             模板广场
           </div>
 
+          <div
+              class="nav-item"
+              :class="{ 'is-active': $route.path === '/match-recommend' }"
+              @click="navigateTo('/match-recommend')"
+          >
+            AI岗位匹配
+          </div>
           <!-- AI面试练习 -->
           <div
               class="nav-item"

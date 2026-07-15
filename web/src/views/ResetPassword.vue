@@ -1,21 +1,21 @@
 <!-- src/views/ResetPassword.vue -->
 <template>
-  <div class="auth-container">
-    <!-- 动态背景层 -->
-    <div class="bg-layer">
+  <div class="auth-container" role="main" aria-labelledby="page-title">
+    <!-- 动态背景层 - 添加aria-hidden -->
+    <div class="bg-layer" aria-hidden="true">
       <div class="bg-gradient"></div>
       <div class="bubble" v-for="i in 12" :key="i" :style="getBubbleStyle(i)"></div>
     </div>
 
     <div class="auth-card">
-      <!-- 左侧图片区域 -->
-      <div class="auth-left">
-        <img :src="resetImage" alt="重置密码插图" class="auth-image" />
+      <!-- 左侧图片区域 - 添加aria-hidden，纯装饰 -->
+      <div class="auth-left" aria-hidden="true">
+        <img :src="resetImage" alt="" class="auth-image" role="presentation" />
       </div>
 
       <!-- 右侧表单区域 -->
       <div class="auth-right">
-        <h1 class="auth-title">重置密码</h1>
+        <h1 id="page-title" class="auth-title">重置密码</h1>
         <p class="auth-subtitle">通过邮箱验证码重置您的密码</p>
 
         <el-form
@@ -24,65 +24,97 @@
             :rules="rules"
             label-width="0"
             @submit.prevent="handleReset"
+            novalidate
         >
+          <!-- 邮箱字段 - 添加可见标签 -->
           <el-form-item prop="email">
+            <label for="reset-email" class="visually-hidden">邮箱地址</label>
             <el-input
+                id="reset-email"
                 v-model="resetForm.email"
                 placeholder="请输入邮箱"
                 size="large"
                 prefix-icon="Message"
                 autocomplete="email"
+                type="email"
+                aria-required="true"
+                aria-describedby="email-hint"
             />
+            <span id="email-hint" class="visually-hidden">请输入您的电子邮箱地址</span>
           </el-form-item>
 
+          <!-- 验证码字段 -->
           <el-form-item prop="code">
+            <label for="reset-code" class="visually-hidden">验证码</label>
             <div class="code-input-wrapper">
               <el-input
+                  id="reset-code"
                   v-model="resetForm.code"
                   placeholder="请输入验证码"
                   size="large"
                   prefix-icon="Lock"
                   maxlength="6"
+                  aria-required="true"
+                  aria-describedby="code-hint"
+                  inputmode="numeric"
+                  autocomplete="one-time-code"
               />
+              <span id="code-hint" class="visually-hidden">6位数字验证码</span>
               <el-button
                   class="code-btn"
                   size="large"
                   :disabled="codeCountdown > 0 || !isEmailValid"
                   @click="handleSendCode"
+                  :aria-label="codeCountdown > 0 ? `等待 ${codeCountdown} 秒后重新获取` : '获取验证码'"
               >
                 {{ codeCountdown > 0 ? `${codeCountdown}s` : '获取验证码' }}
               </el-button>
             </div>
           </el-form-item>
 
+          <!-- 密码字段 -->
           <el-form-item prop="password">
+            <label for="reset-password" class="visually-hidden">新密码</label>
             <el-input
+                id="reset-password"
                 v-model="resetForm.password"
                 type="password"
                 placeholder="请输入新密码（6-20位，含字母和数字）"
                 size="large"
                 prefix-icon="Lock"
                 show-password
+                aria-required="true"
+                aria-describedby="password-hint"
+                autocomplete="new-password"
             />
+            <span id="password-hint" class="visually-hidden">密码需为6到20位，包含字母和数字</span>
           </el-form-item>
 
+          <!-- 确认密码字段 -->
           <el-form-item prop="confirmPassword">
+            <label for="reset-confirm-password" class="visually-hidden">确认新密码</label>
             <el-input
+                id="reset-confirm-password"
                 v-model="resetForm.confirmPassword"
                 type="password"
                 placeholder="请再次输入新密码"
                 size="large"
                 prefix-icon="Lock"
                 show-password
+                aria-required="true"
+                autocomplete="new-password"
             />
           </el-form-item>
 
+          <!-- 提交按钮 -->
           <el-button
               type="primary"
               size="large"
               class="auth-btn"
               :loading="loading"
               @click="handleReset"
+              :aria-label="loading ? '正在重置密码...' : '重置密码'"
+              :aria-disabled="loading"
           >
             重置密码
           </el-button>
@@ -90,7 +122,7 @@
 
         <div class="auth-footer">
           想起密码了？
-          <router-link to="/login" class="auth-link">返回登录</router-link>
+          <router-link to="/login" class="auth-link" aria-label="返回登录页面">返回登录</router-link>
         </div>
       </div>
     </div>
@@ -125,6 +157,23 @@ const isEmailValid = computed(() => {
   return emailRegex.test(resetForm.value.email)
 })
 
+// 自定义验证器：密码包含字母和数字
+const validatePassword = (_: any, value: string, callback: any) => {
+  if (!value) {
+    callback(new Error('请输入密码'))
+    return
+  }
+  if (value.length < 6 || value.length > 20) {
+    callback(new Error('密码长度在6-20位之间'))
+    return
+  }
+  if (!/[A-Za-z]/.test(value) || !/\d/.test(value)) {
+    callback(new Error('密码需同时包含字母和数字'))
+    return
+  }
+  callback()
+}
+
 const rules = {
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
@@ -135,13 +184,7 @@ const rules = {
     { min: 6, max: 6, message: '验证码为6位数字', trigger: 'blur' }
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '密码长度在6-20位之间', trigger: 'blur' },
-    {
-      pattern: /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,20}$/,
-      message: '密码需同时包含字母和数字',
-      trigger: 'blur'
-    }
+    { validator: validatePassword, trigger: 'blur' }
   ],
   confirmPassword: [
     { required: true, message: '请再次输入密码', trigger: 'blur' },
@@ -161,6 +204,11 @@ const rules = {
 const handleSendCode = async () => {
   if (!isEmailValid.value) {
     ElMessage.warning('请输入正确的邮箱格式')
+    // 聚焦到邮箱输入框
+    const emailInput = document.getElementById('reset-email')
+    if (emailInput) {
+      emailInput.focus()
+    }
     return
   }
 
@@ -177,6 +225,11 @@ const handleSendCode = async () => {
         countdownTimer = null
       }
     }, 1000)
+    // 聚焦到验证码输入框
+    const codeInput = document.getElementById('reset-code')
+    if (codeInput) {
+      setTimeout(() => codeInput.focus(), 100)
+    }
   }
 }
 
@@ -184,7 +237,14 @@ const handleReset = async () => {
   if (!resetFormRef.value) return
 
   await resetFormRef.value.validate(async (valid) => {
-    if (!valid) return
+    if (!valid) {
+      // 聚焦到第一个错误字段
+      const firstError = document.querySelector('.el-form-item.is-error input')
+      if (firstError) {
+        ;(firstError as HTMLElement).focus()
+      }
+      return
+    }
 
     loading.value = true
     try {
@@ -195,6 +255,11 @@ const handleReset = async () => {
       )
 
       if (result.success) {
+        ElMessage({
+          message: '密码重置成功，请登录',
+          type: 'success',
+          duration: 5000
+        })
         router.push('/login')
       }
     } finally {
@@ -217,12 +282,42 @@ const getBubbleStyle = (index: number) => {
     animationDuration: `${duration}s`,
     animationDelay: `${delay}s`,
     opacity: opacity,
-    background: `radial-gradient(circle, rgba(100, 163, 134, ${opacity * 0.5}), rgba(205, 226, 232, ${opacity * 0.3}))`
+    // 使用更可见的颜色
+    background: `radial-gradient(circle, rgba(100, 163, 134, ${opacity * 0.6}), rgba(205, 226, 232, ${opacity * 0.4}))`
   }
 }
+
+// 清理定时器
+onUnmounted(() => {
+  if (countdownTimer) {
+    clearInterval(countdownTimer)
+    countdownTimer = null
+  }
+})
+
+// 页面加载时聚焦到第一个输入框
+onMounted(() => {
+  const firstInput = document.getElementById('reset-email')
+  if (firstInput) {
+    setTimeout(() => firstInput.focus(), 100)
+  }
+})
 </script>
 
 <style scoped>
+/* ===== 视觉隐藏辅助类 ===== */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
 .auth-container {
   position: relative;
   display: flex;
@@ -298,13 +393,15 @@ const getBubbleStyle = (index: number) => {
   display: flex;
   width: 860px;
   max-width: 100%;
-  background: rgba(255, 255, 255, 0.85);
+  /* 提高对比度 - 使用更不透明的背景 */
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(20px);
   border-radius: 24px;
-  box-shadow: 0 30px 80px rgba(100, 163, 134, 0.20);
+  /* 增强阴影对比 */
+  box-shadow: 0 30px 80px rgba(44, 77, 61, 0.25);
   overflow: hidden;
   min-height: 520px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 /* ===== 左侧图片 ===== */
@@ -335,14 +432,16 @@ const getBubbleStyle = (index: number) => {
 .auth-title {
   font-size: 26px;
   font-weight: 700;
-  color: #2c4d3d;
+  /* 提高对比度 #2c4d3d -> #1a3a2a */
+  color: #1a3a2a;
   text-align: center;
   margin: 0 0 6px;
 }
 
 .auth-subtitle {
   font-size: 14px;
-  color: #6b8a7a;
+  /* 提高对比度 #6b8a7a -> #4a6b5a */
+  color: #4a6b5a;
   text-align: center;
   margin: 0 0 30px;
 }
@@ -361,49 +460,76 @@ const getBubbleStyle = (index: number) => {
   width: 120px;
   background: rgba(232, 240, 236, 0.7);
   border: none;
-  color: #2c4d3d;
+  /* 提高对比度 #2c4d3d -> #1a3a2a */
+  color: #1a3a2a;
   font-size: 14px;
   border-radius: 10px;
+  /* 添加焦点样式 */
+  transition: outline 0.2s, background 0.2s;
 }
 .code-btn:hover:not(:disabled) {
-  background: rgba(212, 228, 220, 0.8);
+  background: rgba(200, 215, 205, 0.8);
+}
+.code-btn:focus-visible {
+  outline: 3px solid #64A386;
+  outline-offset: 2px;
 }
 .code-btn:disabled {
-  color: #9ab0a4;
+  color: #6b8a7a;
   cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .auth-btn {
   width: 100%;
   margin-top: 4px;
-  background: linear-gradient(135deg, #64A386 0%, #4c8a6e 100%);
+  background: linear-gradient(135deg, #64A386 0%, #3d7a5e 100%);
   border: none;
   font-size: 16px;
   font-weight: 500;
   height: 48px;
   border-radius: 10px;
-  color: #fff;
+  color: #ffffff;
+  /* 添加焦点样式 */
+  transition: outline 0.2s, opacity 0.2s;
 }
-.auth-btn:hover {
+.auth-btn:hover:not(:disabled) {
   opacity: 0.9;
+}
+.auth-btn:focus-visible {
+  outline: 3px solid #2c4d3d;
+  outline-offset: 2px;
+}
+.auth-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .auth-footer {
   text-align: center;
   margin-top: 18px;
   font-size: 14px;
-  color: #6b8a7a;
+  /* 提高对比度 #6b8a7a -> #4a6b5a */
+  color: #4a6b5a;
 }
 
 .auth-link {
-  color: #64A386;
+  color: #3d7a5e;
   text-decoration: none;
   font-weight: 600;
+  /* 添加焦点样式 */
+  transition: outline 0.2s, text-decoration 0.2s;
 }
 .auth-link:hover {
   text-decoration: underline;
 }
+.auth-link:focus-visible {
+  outline: 3px solid #64A386;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 
+/* ===== Element Plus 样式覆盖 - 提高对比度 ===== */
 :deep(.el-form-item) {
   margin-bottom: 18px;
 }
@@ -411,14 +537,27 @@ const getBubbleStyle = (index: number) => {
 :deep(.el-input__wrapper) {
   border-radius: 10px;
   height: 48px;
-  box-shadow: 0 0 0 1px rgba(100, 163, 134, 0.15);
-  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 0 1px rgba(44, 77, 61, 0.2);
+  background: rgba(255, 255, 255, 0.8);
 }
+
 :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 2px rgba(100, 163, 134, 0.30);
+  box-shadow: 0 0 0 2px #64A386;
 }
+
 :deep(.el-form-item.is-error .el-input__wrapper) {
-  box-shadow: 0 0 0 2px rgba(245, 108, 108, 0.25);
+  box-shadow: 0 0 0 2px #d32f2f;
+}
+
+/* 错误信息样式 - 提高对比度 */
+:deep(.el-form-item__error) {
+  color: #d32f2f;
+  font-weight: 500;
+}
+
+/* Placeholder 颜色 - 提高对比度 */
+:deep(.el-input__inner::placeholder) {
+  color: #6b7a72;
 }
 
 @media (max-width: 768px) {
@@ -440,5 +579,34 @@ const getBubbleStyle = (index: number) => {
     padding: 28px 24px;
   }
 }
-</style>
 
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  .auth-card {
+    background: #ffffff;
+    border: 3px solid #1a3a2a;
+  }
+  .auth-btn {
+    background: #1a3a2a;
+  }
+  .auth-link {
+    color: #0033cc;
+    text-decoration: underline;
+  }
+  :deep(.el-input__wrapper) {
+    background: #ffffff;
+    box-shadow: 0 0 0 2px #1a3a2a;
+  }
+}
+
+/* 减少动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .bg-gradient {
+    animation: none;
+  }
+  .bubble {
+    animation: none;
+    display: none;
+  }
+}
+</style>

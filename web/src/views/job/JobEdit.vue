@@ -1,6 +1,6 @@
 <!-- src/views/job/JobEdit.vue -->
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, onMounted, watch, onUnmounted, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import {
@@ -91,6 +91,9 @@ async function loadJobData() {
     if (result) {
       formData.jobName = result.jobName || '';
       formData.jdContent = result.jdContent || '';
+      // 加载完成后聚焦到标题
+      await nextTick();
+      pageTitleRef.value?.focus();
     } else {
       ElMessage.error('岗位不存在或已被删除');
       router.push('/jobs');
@@ -105,6 +108,11 @@ async function handleSubmit() {
   try {
     await formRef.value.validate();
   } catch {
+    // 聚焦到第一个错误字段
+    const firstError = document.querySelector('.el-form-item.is-error input, .el-form-item.is-error textarea') as HTMLElement;
+    if (firstError) {
+      firstError.focus();
+    }
     return;
   }
 
@@ -146,6 +154,11 @@ function goBack() {
   router.back();
 }
 
+// 用于焦点管理
+const pageTitleRef = ref<HTMLElement>();
+const aiKeywordInputRef = ref<HTMLInputElement>();
+const aiResultRef = ref<HTMLElement>();
+
 // AI 搜索对话框
 const aiDialogVisible = ref(false);
 const aiKeyword = ref('');
@@ -156,16 +169,22 @@ function handleAISearch() {
   aiKeyword.value = formData.jobName || '';
   aiSearchResult.value = null;
   aiDialogVisible.value = true;
+  // 对话框打开后聚焦到输入框
+  nextTick(() => {
+    aiKeywordInputRef.value?.focus();
+  });
 }
 
 async function handleAISearchConfirm() {
   const keyword = aiKeyword.value.trim();
   if (!keyword) {
     ElMessage.warning('请输入岗位名称');
+    aiKeywordInputRef.value?.focus();
     return;
   }
 
   aiSearching.value = true;
+  aiSearchResult.value = null;
   try {
     const result = await handleSearchJob({
       jobName: keyword,
@@ -174,6 +193,9 @@ async function handleAISearchConfirm() {
     if (result) {
       aiSearchResult.value = result;
       ElMessage.success('AI 搜索完成，请查看结果');
+      // 聚焦到搜索结果
+      await nextTick();
+      aiResultRef.value?.focus();
     } else {
       ElMessage.error('AI 搜索失败，请稍后重试');
     }
@@ -191,6 +213,14 @@ function handleApplyAIResult() {
   aiSearchResult.value = null;
   aiDialogVisible.value = false;
   ElMessage.success('已应用 AI 生成的 JD 内容');
+  // 聚焦到JD内容文本域
+  nextTick(() => {
+    const textarea = document.querySelector('.jd-textarea textarea') as HTMLTextAreaElement;
+    if (textarea) {
+      textarea.focus();
+      textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  });
 }
 
 // 预览
@@ -198,12 +228,26 @@ const previewDialogVisible = ref(false);
 
 function handlePreview() {
   previewDialogVisible.value = true;
+  // 对话框打开后聚焦到关闭按钮
+  nextTick(() => {
+    const closeBtn = document.querySelector('.preview-dialog .el-dialog__close') as HTMLElement;
+    if (closeBtn) {
+      setTimeout(() => closeBtn.focus(), 100);
+    }
+  });
 }
 
 function goToOriginalJob() {
   const originalId = jobDetail.value?.originalJobId;
   if (!originalId) return;
   router.push(`/jobs/${originalId}`);
+}
+
+// 键盘事件：ESC返回
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && !aiDialogVisible.value && !previewDialogVisible.value) {
+    goBack();
+  }
 }
 
 watch(
@@ -218,21 +262,36 @@ watch(
 
 onMounted(() => {
   loadJobData();
+  document.addEventListener('keydown', handleKeydown);
+  document.title = '编辑岗位 - 招聘管理系统';
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown);
 });
 </script>
 
 <template>
-  <div class="job-edit-page">
+  <div class="job-edit-page" role="main" aria-labelledby="page-title">
     <!-- 主视觉标语 -->
-    <section class="hero-section">
+    <section class="hero-section" aria-label="页面操作栏">
       <div class="hero-left">
-        <el-button :icon="ArrowLeft" text class="back-btn" @click="goBack">返回</el-button>
-        <h1 class="hero-title">✏️ 编辑岗位</h1>
+        <el-button
+            :icon="ArrowLeft"
+            text
+            class="back-btn"
+            @click="goBack"
+            aria-label="返回上一页"
+        >
+          返回
+        </el-button>
+        <h1 id="page-title" ref="pageTitleRef" class="hero-title" tabindex="-1">✏️ 编辑岗位</h1>
         <el-tag
             v-if="jobDetail"
             :type="sourceInfo.type"
             size="small"
             effect="plain"
+            :aria-label="`来源：${sourceInfo.label}`"
         >
           {{ sourceInfo.label }}
         </el-tag>
@@ -241,16 +300,17 @@ onMounted(() => {
         <el-button
             type="primary"
             :loading="submitting"
+            :aria-disabled="submitting"
             @click="handleSubmit"
         >
-          <el-icon><Check /></el-icon>
+          <el-icon aria-hidden="true"><Check /></el-icon>
           保存更新
         </el-button>
       </div>
     </section>
 
     <!-- 表单区域 -->
-    <section class="form-section">
+    <section class="form-section" aria-label="编辑岗位表单">
       <el-form
           ref="formRef"
           :model="formData"
@@ -258,35 +318,42 @@ onMounted(() => {
           label-width="100px"
           label-position="right"
           class="edit-form"
+          novalidate
       >
         <!-- 岗位名称 -->
-        <el-form-item label="岗位名称" prop="jobName" required>
+        <el-form-item label="岗位名称" prop="jobName" required :aria-required="true">
+          <label for="job-name-input" class="visually-hidden">岗位名称（必填）</label>
           <el-input
+              id="job-name-input"
               v-model="formData.jobName"
               placeholder="请输入岗位名称，如：Java后端开发工程师"
               size="large"
               maxlength="100"
               show-word-limit
+              aria-describedby="job-name-tip"
           />
+          <div id="job-name-tip" class="form-tip">请输入2-100个字符的岗位名称</div>
         </el-form-item>
 
         <!-- JD 内容 -->
         <el-form-item label="JD 内容" prop="jdContent">
           <div class="jd-editor-wrapper">
             <div class="editor-toolbar">
-              <span class="toolbar-title">📋 岗位描述</span>
-              <div class="toolbar-actions">
-                <el-button size="small" text @click="handleAISearch">
-                  <el-icon><MagicStick /></el-icon>
+              <span class="toolbar-title" id="jd-editor-title">📋 岗位描述</span>
+              <div class="toolbar-actions" role="group" aria-label="编辑器操作">
+                <el-button size="small" text @click="handleAISearch" aria-label="使用AI重新生成JD内容">
+                  <el-icon aria-hidden="true"><MagicStick /></el-icon>
                   AI 重新生成
                 </el-button>
-                <el-button size="small" text @click="handlePreview">
-                  <el-icon><View /></el-icon>
+                <el-button size="small" text @click="handlePreview" aria-label="预览JD内容">
+                  <el-icon aria-hidden="true"><View /></el-icon>
                   预览
                 </el-button>
               </div>
             </div>
+            <label for="jd-content-input" class="visually-hidden">岗位描述内容</label>
             <el-input
+                id="jd-content-input"
                 v-model="formData.jdContent"
                 type="textarea"
                 :rows="12"
@@ -294,9 +361,10 @@ onMounted(() => {
                 maxlength="10000"
                 show-word-limit
                 class="jd-textarea"
+                aria-describedby="jd-editor-tip"
             />
-            <div class="editor-tip">
-              <el-icon><InfoFilled /></el-icon>
+            <div id="jd-editor-tip" class="editor-tip">
+              <el-icon aria-hidden="true"><InfoFilled /></el-icon>
               <span>建议结构：公司名称 | 薪资范围 | 工作地点 | 岗位职责 | 任职要求</span>
             </div>
           </div>
@@ -307,39 +375,44 @@ onMounted(() => {
           <span class="divider-title">📊 岗位信息</span>
         </el-divider>
 
-        <div class="info-grid">
+        <dl class="info-grid" aria-label="岗位元数据">
           <div class="info-item">
-            <span class="info-label">来源</span>
-            <el-tag :type="sourceInfo.type" size="default">
-              {{ sourceInfo.label }}
-            </el-tag>
+            <dt class="info-label">来源</dt>
+            <dd>
+              <el-tag :type="sourceInfo.type" size="default">
+                {{ sourceInfo.label }}
+              </el-tag>
+            </dd>
           </div>
           <div class="info-item">
-            <span class="info-label">创建时间</span>
-            <span class="info-value">{{ formatDate(jobDetail?.createdAt) }}</span>
+            <dt class="info-label">创建时间</dt>
+            <dd class="info-value">{{ formatDate(jobDetail?.createdAt) }}</dd>
           </div>
           <div class="info-item">
-            <span class="info-label">更新时间</span>
-            <span class="info-value">{{ formatDate(jobDetail?.updatedAt) }}</span>
+            <dt class="info-label">更新时间</dt>
+            <dd class="info-value">{{ formatDate(jobDetail?.updatedAt) }}</dd>
           </div>
           <div v-if="jobDetail?.originalJobId" class="info-item">
-            <span class="info-label">原始岗位</span>
-            <el-link type="primary" @click="goToOriginalJob">
-              #{{ jobDetail.originalJobId }}
-            </el-link>
+            <dt class="info-label">原始岗位</dt>
+            <dd>
+              <el-link type="primary" @click="goToOriginalJob" aria-label="查看原始岗位 #{{ jobDetail.originalJobId }}">
+                #{{ jobDetail.originalJobId }}
+              </el-link>
+            </dd>
           </div>
-        </div>
+        </dl>
 
         <!-- 操作按钮 -->
         <el-form-item class="form-actions">
-          <el-button size="large" @click="handleCancel">取消</el-button>
+          <el-button size="large" @click="handleCancel" aria-label="取消编辑并返回">取消</el-button>
           <el-button
               type="primary"
               size="large"
               :loading="submitting"
+              :aria-disabled="submitting"
               @click="handleSubmit"
           >
-            <el-icon><Check /></el-icon>
+            <el-icon aria-hidden="true"><Check /></el-icon>
             保存更新
           </el-button>
         </el-form-item>
@@ -353,39 +426,54 @@ onMounted(() => {
         width="700px"
         :close-on-click-modal="false"
         destroy-on-close
+        :aria-label="'AI 重新生成 JD 对话框'"
+        class="ai-dialog"
     >
       <div class="ai-dialog-content">
-        <p class="ai-dialog-desc">
+        <p id="ai-dialog-desc" class="ai-dialog-desc">
           输入岗位名称，AI 将联网搜索最新的 JD 信息，帮助你完善或更新岗位描述。
           <span class="ai-limit-tip">（每分钟限 5 次）</span>
         </p>
+        <label for="ai-keyword-input" class="visually-hidden">输入岗位名称进行AI搜索</label>
         <el-input
+            id="ai-keyword-input"
+            ref="aiKeywordInputRef"
             v-model="aiKeyword"
             placeholder="请输入岗位名称，如：Java后端开发工程师"
             size="large"
             clearable
+            aria-describedby="ai-dialog-desc"
             @keydown.enter="handleAISearchConfirm"
         >
           <template #prefix>
-            <el-icon><Search /></el-icon>
+            <el-icon aria-hidden="true"><Search /></el-icon>
           </template>
           <template #append>
             <el-button
                 type="primary"
                 :loading="aiSearching"
+                :aria-busy="aiSearching"
                 @click="handleAISearchConfirm"
             >
-              <el-icon><MagicStick /></el-icon>
+              <el-icon aria-hidden="true"><MagicStick /></el-icon>
               AI 搜索
             </el-button>
           </template>
         </el-input>
 
-        <div v-if="aiSearchResult" class="ai-result-preview">
+        <div
+            v-if="aiSearchResult"
+            ref="aiResultRef"
+            class="ai-result-preview"
+            role="region"
+            aria-live="polite"
+            aria-labelledby="ai-result-title"
+            tabindex="-1"
+        >
           <el-divider content-position="left">
-            <span class="result-title">📎 搜索结果</span>
+            <span id="ai-result-title" class="result-title">📎 搜索结果</span>
           </el-divider>
-          <div class="result-content">
+          <div class="result-content" role="document" aria-label="AI生成的JD内容">
             <JdContent
                 :content="aiSearchResult.jdContent"
                 :job-name="aiSearchResult.jobName"
@@ -394,27 +482,33 @@ onMounted(() => {
           </div>
           <div v-if="aiSearchResult.sources && aiSearchResult.sources.length" class="result-sources">
             <span class="sources-label">🔗 来源：</span>
-            <el-link
-                v-for="(source, index) in aiSearchResult.sources"
-                :key="index"
-                :href="source"
-                target="_blank"
-                type="primary"
-                :underline="false"
-                class="source-link"
-            >
-              {{ source.length > 40 ? source.substring(0, 40) + '...' : source }}
-            </el-link>
+            <ul class="sources-list" aria-label="信息来源列表">
+              <li v-for="(source, index) in aiSearchResult.sources" :key="index">
+                <el-link
+                    :href="source"
+                    target="_blank"
+                    type="primary"
+                    :underline="false"
+                    class="source-link"
+                    aria-label="信息来源链接 {{ index + 1 }}"
+                >
+                  {{ source.length > 40 ? source.substring(0, 40) + '...' : source }}
+                </el-link>
+              </li>
+            </ul>
           </div>
           <div class="result-actions">
-            <el-button @click="aiSearchResult = null">取消</el-button>
-            <el-button type="primary" @click="handleApplyAIResult">
-              <el-icon><Check /></el-icon>
+            <el-button @click="aiSearchResult = null" aria-label="取消应用AI结果">取消</el-button>
+            <el-button type="primary" @click="handleApplyAIResult" aria-label="应用AI生成的JD到表单">
+              <el-icon aria-hidden="true"><Check /></el-icon>
               应用此 JD
             </el-button>
           </div>
         </div>
       </div>
+      <template #footer>
+        <el-button @click="aiDialogVisible = false" aria-label="关闭AI搜索对话框">关闭</el-button>
+      </template>
     </el-dialog>
 
     <!-- 预览对话框 -->
@@ -423,8 +517,10 @@ onMounted(() => {
         title="👁️ JD 预览"
         width="700px"
         destroy-on-close
+        :aria-label="'JD 预览对话框'"
+        class="preview-dialog"
     >
-      <div class="preview-content">
+      <div class="preview-content" role="document" aria-label="JD预览内容">
         <JdContent
             :content="formData.jdContent || '暂无 JD 内容'"
             :job-name="formData.jobName || '未命名岗位'"
@@ -432,13 +528,26 @@ onMounted(() => {
         />
       </div>
       <template #footer>
-        <el-button @click="previewDialogVisible = false">关闭</el-button>
+        <el-button @click="previewDialogVisible = false" aria-label="关闭预览">关闭</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <style scoped>
+/* 视觉隐藏但屏幕阅读器可访问 */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .job-edit-page {
   width: 100%;
   min-height: 100%;
@@ -479,11 +588,21 @@ onMounted(() => {
   color: #2d5a4a;
 }
 
+.back-btn:focus-visible {
+  outline: 2px solid #4a7a64;
+  outline-offset: 2px;
+}
+
 .hero-title {
   margin: 0;
   font-size: 22px;
   font-weight: 600;
   color: #4a7a64;
+}
+
+.hero-title:focus-visible {
+  outline: 2px solid #4a7a64;
+  outline-offset: 2px;
 }
 
 .hero-right .el-button {
@@ -499,6 +618,11 @@ onMounted(() => {
   transform: translateY(-1px);
   background: #558f73;
   border-color: #558f73;
+}
+
+.hero-right .el-button:focus-visible {
+  outline: 2px solid #2d5a4a;
+  outline-offset: 2px;
 }
 
 /* ========== 表单区域 ========== */
@@ -522,6 +646,24 @@ onMounted(() => {
 .edit-form :deep(.el-form-item__label) {
   font-weight: 500;
   color: #4a7a64;
+}
+
+.edit-form :deep(.el-form-item.is-error .el-input__wrapper) {
+  border-color: #f56c6c;
+}
+
+.edit-form :deep(.el-form-item.is-error .el-textarea__inner) {
+  border-color: #f56c6c;
+}
+
+.edit-form :deep(.el-input__wrapper:focus-within) {
+  box-shadow: 0 0 0 2px rgba(100, 163, 134, 0.2);
+}
+
+.form-tip {
+  font-size: 12px;
+  color: #8aab9a;
+  margin-top: 4px;
 }
 
 /* ========== JD 编辑器 ========== */
@@ -560,6 +702,11 @@ onMounted(() => {
   background: rgba(100, 163, 134, 0.1);
 }
 
+.toolbar-actions .el-button:focus-visible {
+  outline: 2px solid #64A386;
+  outline-offset: 2px;
+}
+
 .jd-textarea :deep(.el-textarea__inner) {
   border-radius: 0 0 8px 8px;
   border-color: rgba(200, 216, 210, 0.3);
@@ -571,6 +718,7 @@ onMounted(() => {
 
 .jd-textarea :deep(.el-textarea__inner:focus) {
   border-color: #64A386;
+  box-shadow: 0 0 0 2px rgba(100, 163, 134, 0.2);
 }
 
 .editor-tip {
@@ -598,6 +746,7 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 16px 24px;
   padding: 8px 0 16px;
+  margin: 0;
 }
 
 .info-item {
@@ -606,13 +755,15 @@ onMounted(() => {
   gap: 8px;
 }
 
-.info-label {
+.info-item dt {
   font-size: 14px;
   color: #8aab9a;
   min-width: 56px;
+  margin: 0;
 }
 
-.info-value {
+.info-item dd {
+  margin: 0;
   font-size: 14px;
   color: #333;
 }
@@ -635,6 +786,11 @@ onMounted(() => {
   font-weight: 500;
 }
 
+.form-actions .el-button:focus-visible {
+  outline: 2px solid #2d5a4a;
+  outline-offset: 2px;
+}
+
 .form-actions .el-button--primary {
   background: #64A386;
   border-color: #64A386;
@@ -646,6 +802,25 @@ onMounted(() => {
 }
 
 /* ========== AI 对话框 ========== */
+.ai-dialog :deep(.el-dialog) {
+  border-radius: 16px;
+}
+
+.ai-dialog :deep(.el-dialog__header) {
+  border-bottom: 1px solid rgba(200, 216, 210, 0.3);
+  padding: 20px 24px 16px;
+}
+
+.ai-dialog :deep(.el-dialog__title) {
+  font-size: 18px;
+  font-weight: 600;
+  color: #4a7a64;
+}
+
+.ai-dialog :deep(.el-dialog__body) {
+  padding: 20px 24px;
+}
+
 .ai-dialog-content {
   padding: 4px 0;
 }
@@ -678,8 +853,18 @@ onMounted(() => {
   border-color: #558f73;
 }
 
+.ai-dialog-content :deep(.el-input-group__append .el-button:focus-visible) {
+  outline: 2px solid #2d5a4a;
+  outline-offset: 2px;
+}
+
 .ai-result-preview {
   margin-top: 20px;
+}
+
+.ai-result-preview:focus-visible {
+  outline: 2px solid #64A386;
+  outline-offset: 2px;
 }
 
 .result-title {
@@ -713,6 +898,19 @@ onMounted(() => {
   color: #8aab9a;
 }
 
+.sources-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sources-list li {
+  display: inline;
+}
+
 .source-link {
   font-size: 12px;
   color: #64A386;
@@ -723,11 +921,21 @@ onMounted(() => {
   color: #4a7a64;
 }
 
+.source-link:focus-visible {
+  outline: 2px solid #64A386;
+  outline-offset: 2px;
+}
+
 .result-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
   margin-top: 16px;
+}
+
+.result-actions .el-button:focus-visible {
+  outline: 2px solid #2d5a4a;
+  outline-offset: 2px;
 }
 
 .result-actions .el-button--primary {
@@ -741,6 +949,25 @@ onMounted(() => {
 }
 
 /* ========== 预览对话框 ========== */
+.preview-dialog :deep(.el-dialog) {
+  border-radius: 16px;
+}
+
+.preview-dialog :deep(.el-dialog__header) {
+  border-bottom: 1px solid rgba(200, 216, 210, 0.3);
+  padding: 20px 24px 16px;
+}
+
+.preview-dialog :deep(.el-dialog__title) {
+  font-size: 18px;
+  font-weight: 600;
+  color: #4a7a64;
+}
+
+.preview-dialog :deep(.el-dialog__body) {
+  padding: 20px 24px;
+}
+
 .preview-content {
   padding: 4px 0;
   max-height: 500px;
@@ -814,11 +1041,53 @@ onMounted(() => {
     width: 100%;
     justify-content: center;
   }
+
+  .ai-dialog :deep(.el-dialog) {
+    width: 95% !important;
+  }
+
+  .preview-dialog :deep(.el-dialog) {
+    width: 95% !important;
+  }
 }
 
 @media (max-width: 480px) {
   .info-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  .job-edit-page {
+    background: #ffffff;
+  }
+
+  .hero-section {
+    background: #f5f5f5;
+    border-color: #000;
+  }
+
+  .form-section {
+    background: #ffffff;
+    border-color: #000;
+  }
+
+  .editor-toolbar {
+    border-color: #000;
+    background: #f0f0f0;
+  }
+
+  .jd-textarea :deep(.el-textarea__inner) {
+    border-color: #000;
+  }
+
+  .info-grid {
+    border-top-color: #000;
+  }
+
+  .form-actions {
+    border-top-color: #000;
   }
 }
 </style>

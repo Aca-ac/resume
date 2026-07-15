@@ -24,7 +24,7 @@ class Request {
     constructor() {
         this.instance = axios.create({
             baseURL: '/api',
-            timeout: 300000,
+            timeout: 1000000,
             headers: {
                 'Content-Type': 'application/json'
             }
@@ -121,7 +121,10 @@ class Request {
                 if (error.response?.data) {
                     const data = error.response.data as { message?: string; code?: number }
                     if (data.message) {
-                        ElMessage.error(data.message)
+                        ElMessage.error({
+                            message: data.message,
+                            duration: 1000  //  设置为 1秒，单位毫秒
+                        })
                     }
                 } else if (error.message) {
                     ElMessage.error(error.message)

@@ -1,6 +1,6 @@
 <!-- src/views/job/JobSearch.vue -->
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import {
@@ -27,6 +27,12 @@ const creating = ref(false);
 const searchStep = ref(0);
 let stepTimer: ReturnType<typeof setTimeout> | null = null;
 
+// 用于焦点管理
+const pageTitleRef = ref<HTMLElement>();
+const searchInputRef = ref<HTMLInputElement>();
+const resultSectionRef = ref<HTMLElement>();
+const createBtnRef = ref<HTMLElement>();
+
 const examples = [
   'Java后端开发工程师',
   '前端开发工程师',
@@ -35,14 +41,21 @@ const examples = [
   'UI/UX设计师',
 ];
 
+// 空状态描述
+const emptyDescription = computed(() => {
+  return searchKeyword.value.trim() ? '未找到匹配结果' : '输入岗位名称开始 AI 搜索';
+});
+
 async function handleSearch() {
   const keyword = searchKeyword.value.trim();
   if (!keyword) {
     ElMessage.warning('请输入岗位名称');
+    searchInputRef.value?.focus();
     return;
   }
 
   searchStep.value = 0;
+  searchResult.value = null;
 
   try {
     startStepAnimation();
@@ -50,10 +63,15 @@ async function handleSearch() {
     if (result) {
       searchResult.value = result;
       router.replace({ query: { keyword: keyword } });
+      // 搜索结果加载完成后聚焦到结果区域
+      await nextTick();
+      resultSectionRef.value?.focus();
     } else {
       searchResult.value = null;
+      ElMessage.info('未找到相关岗位信息，请尝试其他关键词');
     }
   } catch (error) {
+    console.error('搜索失败:', error);
     ElMessage.error('搜索失败，请稍后重试');
     searchResult.value = null;
   } finally {
@@ -89,6 +107,19 @@ function handleClear() {
   searchStep.value = 0;
   stopStepAnimation();
   router.replace({ query: {} });
+  // 清空后聚焦到搜索框
+  nextTick(() => {
+    searchInputRef.value?.focus();
+  });
+}
+
+function handleExampleClick(example: string) {
+  searchKeyword.value = example;
+  // 点击示例后自动聚焦到搜索框并触发搜索
+  nextTick(() => {
+    searchInputRef.value?.focus();
+    handleSearch();
+  });
 }
 
 async function handleCreateJob() {
@@ -105,6 +136,7 @@ async function handleCreateJob() {
       router.push('/jobs');
     }
   } catch (error) {
+    console.error('创建失败:', error);
     ElMessage.error('创建失败，请重试');
   } finally {
     creating.value = false;
@@ -125,62 +157,105 @@ function restoreFromQuery() {
   }
 }
 
+// 键盘事件：ESC清空搜索
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && searchKeyword.value) {
+    handleClear();
+  }
+}
+
+// 键盘事件：Ctrl+Enter快速搜索
+function handleSearchKeydown(event: KeyboardEvent) {
+  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+    event.preventDefault();
+    handleSearch();
+  }
+}
+
 onMounted(() => {
   restoreFromQuery();
+  document.addEventListener('keydown', handleKeydown);
+  document.addEventListener('keydown', handleSearchKeydown);
+  document.title = 'AI智能搜索 - 招聘管理系统';
+  // 页面加载后聚焦到标题
+  nextTick(() => {
+    pageTitleRef.value?.focus();
+  });
 });
 
 onUnmounted(() => {
   stopStepAnimation();
+  document.removeEventListener('keydown', handleKeydown);
+  document.removeEventListener('keydown', handleSearchKeydown);
 });
 </script>
 
 <template>
-  <div class="job-search-page">
+  <div class="job-search-page" role="main" aria-labelledby="page-title">
     <!-- 主视觉标语 -->
-    <section class="hero-section">
+    <section class="hero-section" aria-label="页面操作栏">
       <div class="hero-left">
-        <el-button :icon="ArrowLeft" text class="back-btn" @click="goBack">返回</el-button>
-        <h1 class="hero-title">🔍 AI 智能搜索</h1>
+        <el-button
+            :icon="ArrowLeft"
+            text
+            class="back-btn"
+            @click="goBack"
+            aria-label="返回上一页"
+        >
+          返回
+        </el-button>
+        <h1 id="page-title" ref="pageTitleRef" class="hero-title" tabindex="-1">🔍 AI 智能搜索</h1>
       </div>
     </section>
 
     <!-- 搜索栏 -->
-    <section class="search-section">
+    <section class="search-section" aria-label="AI搜索表单">
       <div class="search-container">
+        <label for="ai-search-input" class="visually-hidden">输入岗位名称进行AI搜索</label>
         <el-input
+            id="ai-search-input"
+            ref="searchInputRef"
             v-model="searchKeyword"
             size="large"
             placeholder="请输入岗位名称，如：Java后端开发工程师"
             clearable
+            aria-describedby="search-tip"
             @keydown.enter="handleSearch"
             @clear="handleClear"
         >
           <template #prefix>
-            <el-icon><Search /></el-icon>
+            <el-icon aria-hidden="true"><Search /></el-icon>
           </template>
           <template #append>
             <el-button
                 type="primary"
                 :loading="isSearching"
+                :aria-busy="isSearching"
                 @click="handleSearch"
             >
-              <el-icon><MagicStick /></el-icon>
+              <el-icon aria-hidden="true"><MagicStick /></el-icon>
               AI 搜索补全
             </el-button>
           </template>
         </el-input>
-        <p class="search-tip">
-          <el-icon><InfoFilled /></el-icon>
+        <p id="search-tip" class="search-tip">
+          <el-icon aria-hidden="true"><InfoFilled /></el-icon>
           支持岗位名称模糊搜索，AI 将联网获取最新招聘信息
+          <span class="shortcut-hint">（Ctrl+Enter 快速搜索）</span>
         </p>
-        <div class="example-tags">
+        <div class="example-tags" role="group" aria-label="热门搜索示例">
           <span class="example-label">热门搜索：</span>
           <el-tag
               v-for="example in examples"
               :key="example"
               size="small"
               class="example-tag"
-              @click="searchKeyword = example"
+              @click="handleExampleClick(example)"
+              role="button"
+              tabindex="0"
+              :aria-label="`搜索 ${example}`"
+              @keydown.enter="handleExampleClick(example)"
+              @keydown.space.prevent="handleExampleClick(example)"
           >
             {{ example }}
           </el-tag>
@@ -189,26 +264,35 @@ onUnmounted(() => {
     </section>
 
     <!-- 搜索结果 -->
-    <section v-if="searchResult" class="result-section">
+    <section
+        v-if="searchResult"
+        ref="resultSectionRef"
+        class="result-section"
+        role="region"
+        aria-labelledby="result-title"
+        tabindex="-1"
+    >
       <div class="result-header">
         <div class="result-title-wrapper">
-          <el-icon class="result-icon"><Document /></el-icon>
-          <h2 class="result-title">{{ searchResult.jobName }}</h2>
-          <el-tag type="success" size="large" effect="plain">
+          <el-icon class="result-icon" aria-hidden="true"><Document /></el-icon>
+          <h2 id="result-title" class="result-title">{{ searchResult.jobName }}</h2>
+          <el-tag type="success" size="large" effect="plain" aria-label="AI生成内容">
             AI 生成
           </el-tag>
         </div>
-        <div class="result-actions">
+        <div class="result-actions" role="group" aria-label="结果操作">
           <el-button
+              ref="createBtnRef"
               type="primary"
               :loading="creating"
+              :aria-disabled="creating"
               @click="handleCreateJob"
           >
-            <el-icon><Plus /></el-icon>
+            <el-icon aria-hidden="true"><Plus /></el-icon>
             创建为我的岗位
           </el-button>
-          <el-button @click="handleClear">
-            <el-icon><Refresh /></el-icon>
+          <el-button @click="handleClear" aria-label="重新搜索">
+            <el-icon aria-hidden="true"><Refresh /></el-icon>
             重新搜索
           </el-button>
         </div>
@@ -216,19 +300,22 @@ onUnmounted(() => {
 
       <div v-if="searchResult.sources && searchResult.sources.length > 0" class="sources-section">
         <span class="sources-label">📌 数据来源：</span>
-        <el-link
-            v-for="(source, index) in searchResult.sources"
-            :key="index"
-            :href="source"
-            target="_blank"
-            type="primary"
-            class="source-link"
-        >
-          {{ source }}
-        </el-link>
+        <ul class="sources-list" aria-label="信息来源列表">
+          <li v-for="(source, index) in searchResult.sources" :key="index">
+            <el-link
+                :href="source"
+                target="_blank"
+                type="primary"
+                class="source-link"
+                :aria-label="`信息来源 ${index + 1}`"
+            >
+              {{ source }}
+            </el-link>
+          </li>
+        </ul>
       </div>
 
-      <div class="jd-wrapper">
+      <div class="jd-wrapper" role="document" aria-label="AI生成的岗位描述内容">
         <JdContent
             :content="searchResult.jdContent"
             :job-name="searchResult.jobName"
@@ -253,27 +340,33 @@ onUnmounted(() => {
     </section>
 
     <!-- 加载中占位 -->
-    <section v-else-if="isSearching" class="loading-section">
+    <section
+        v-else-if="isSearching"
+        class="loading-section"
+        role="status"
+        aria-live="polite"
+        aria-label="AI搜索加载中"
+    >
       <div class="loading-wrapper">
-        <el-icon class="loading-icon is-loading"><Loading /></el-icon>
+        <el-icon class="loading-icon is-loading" aria-hidden="true"><Loading /></el-icon>
         <h3 class="loading-title">AI 正在联网搜索...</h3>
         <p class="loading-desc">
           正在从各大招聘平台收集「{{ searchKeyword || '目标岗位' }}」的 JD 信息，
           预计需要 3-5 秒
         </p>
-        <div class="loading-steps">
+        <div class="loading-steps" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="3" aria-label="搜索进度">
           <div class="step" :class="{ active: searchStep >= 1 }">
-            <span class="step-num">1</span>
+            <span class="step-num" :aria-current="searchStep >= 1 ? 'step' : undefined">1</span>
             <span class="step-text">理解岗位需求</span>
           </div>
-          <div class="step-line" :class="{ active: searchStep >= 2 }"></div>
+          <div class="step-line" :class="{ active: searchStep >= 2 }" aria-hidden="true"></div>
           <div class="step" :class="{ active: searchStep >= 2 }">
-            <span class="step-num">2</span>
+            <span class="step-num" :aria-current="searchStep >= 2 ? 'step' : undefined">2</span>
             <span class="step-text">联网搜索信息</span>
           </div>
-          <div class="step-line" :class="{ active: searchStep >= 3 }"></div>
+          <div class="step-line" :class="{ active: searchStep >= 3 }" aria-hidden="true"></div>
           <div class="step" :class="{ active: searchStep >= 3 }">
-            <span class="step-num">3</span>
+            <span class="step-num" :aria-current="searchStep >= 3 ? 'step' : undefined">3</span>
             <span class="step-text">生成 JD 内容</span>
           </div>
         </div>
@@ -281,20 +374,36 @@ onUnmounted(() => {
     </section>
 
     <!-- 空状态 / 初始状态 -->
-    <section v-else class="empty-section">
-      <el-empty description="输入岗位名称开始 AI 搜索" :image-size="160">
+    <section v-else class="empty-section" role="status" aria-live="polite">
+      <el-empty :description="emptyDescription" :image-size="160">
         <template #description>
           <p style="color: #8a9ba8; font-size: 15px; margin-bottom: 8px;">
-            输入你想要了解的岗位名称
+            {{ searchKeyword.trim() ? '未找到匹配的岗位信息' : '输入你想要了解的岗位名称' }}
+          </p>
+          <p v-if="searchKeyword.trim()" style="color: #b0c4ce; font-size: 13px;">
+            💡 试试其他关键词，或点击热门搜索示例
           </p>
         </template>
-        <el-icon class="empty-icon"><MagicStick /></el-icon>
+        <el-icon class="empty-icon" aria-hidden="true"><MagicStick /></el-icon>
       </el-empty>
     </section>
   </div>
 </template>
 
 <style scoped>
+/* 视觉隐藏但屏幕阅读器可访问 */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .job-search-page {
   width: 100%;
   min-height: 100%;
@@ -332,11 +441,21 @@ onUnmounted(() => {
   color: #2d5a4a;
 }
 
+.back-btn:focus-visible {
+  outline: 2px solid #4a7a64;
+  outline-offset: 2px;
+}
+
 .hero-title {
   margin: 0;
   font-size: 24px;
   font-weight: 600;
   color: #4a7a64;
+}
+
+.hero-title:focus-visible {
+  outline: 2px solid #4a7a64;
+  outline-offset: 2px;
 }
 
 /* ========== 搜索栏 ========== */
@@ -371,6 +490,15 @@ onUnmounted(() => {
   border-color: #558f73;
 }
 
+.search-container :deep(.el-input-group__append .el-button:focus-visible) {
+  outline: 2px solid #2d5a4a;
+  outline-offset: 2px;
+}
+
+.search-container :deep(.el-input__wrapper:focus-within) {
+  box-shadow: 0 0 0 2px rgba(100, 163, 134, 0.2);
+}
+
 .search-tip {
   display: flex;
   align-items: center;
@@ -382,6 +510,12 @@ onUnmounted(() => {
 
 .search-tip .el-icon {
   font-size: 16px;
+}
+
+.shortcut-hint {
+  color: #b0c4ce;
+  font-size: 12px;
+  margin-left: 4px;
 }
 
 .example-tags {
@@ -411,6 +545,11 @@ onUnmounted(() => {
   border-color: #64A386;
 }
 
+.example-tag:focus-visible {
+  outline: 2px solid #4a7a64;
+  outline-offset: 2px;
+}
+
 /* ========== 结果区域 ========== */
 .result-section {
   background: rgba(255, 255, 255, 0.7);
@@ -418,6 +557,11 @@ onUnmounted(() => {
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.4);
   padding: 28px 32px 20px;
+}
+
+.result-section:focus-visible {
+  outline: 2px solid #64A386;
+  outline-offset: 2px;
 }
 
 .result-header {
@@ -462,6 +606,11 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
+.result-actions .el-button:focus-visible {
+  outline: 2px solid #2d5a4a;
+  outline-offset: 2px;
+}
+
 .result-actions .el-button--primary {
   background: #64A386;
   border-color: #64A386;
@@ -490,9 +639,27 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
+.sources-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sources-list li {
+  display: inline;
+}
+
 .source-link {
   font-size: 13px;
   word-break: break-all;
+}
+
+.source-link:focus-visible {
+  outline: 2px solid #64A386;
+  outline-offset: 2px;
 }
 
 /* ========== JD 内容 ========== */
@@ -512,6 +679,11 @@ onUnmounted(() => {
   border-radius: 10px;
   background: rgba(100, 163, 134, 0.06);
   border-color: rgba(100, 163, 134, 0.2);
+}
+
+.result-footer :deep(.el-alert:focus-visible) {
+  outline: 2px solid #64A386;
+  outline-offset: 2px;
 }
 
 /* ========== 加载中占位 ========== */
@@ -703,6 +875,56 @@ onUnmounted(() => {
     border-radius: 8px;
     width: 100%;
     justify-content: center;
+  }
+
+  .shortcut-hint {
+    display: none;
+  }
+}
+
+/* ========== 高对比度模式 ========== */
+@media (prefers-contrast: high) {
+  .job-search-page {
+    background: #ffffff;
+  }
+
+  .hero-section {
+    background: #f5f5f5;
+    border-color: #000;
+  }
+
+  .search-section {
+    background: #ffffff;
+    border-color: #000;
+  }
+
+  .result-section {
+    background: #ffffff;
+    border-color: #000;
+  }
+
+  .loading-section {
+    background: #ffffff;
+    border-color: #000;
+  }
+
+  .empty-section {
+    background: #ffffff;
+    border-color: #000;
+  }
+
+  .jd-wrapper {
+    border-color: #000;
+    background: #f9f9f9;
+  }
+
+  .sources-section {
+    background: #f0f0f0;
+    border: 1px solid #000;
+  }
+
+  .result-header {
+    border-bottom-color: #000;
   }
 }
 </style>
