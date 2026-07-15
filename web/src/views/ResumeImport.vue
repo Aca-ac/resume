@@ -13,6 +13,7 @@
       <div class="import-card">
         <div class="upload-icon-wrapper">
           <el-icon :size="64" class="upload-icon"><UploadFilled /></el-icon>
+
         </div>
         <h3 class="upload-title">上传简历文件</h3>
         <p class="upload-desc">拖拽或点击上传，支持 doc、docx、pdf、jpg、jpeg、png</p>

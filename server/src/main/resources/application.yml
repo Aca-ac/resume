@@ -64,6 +64,7 @@ app:
       api-key: ${DASHSCOPE_API_KEY:${QWEN_API_KEY:}}
       model: deepseek-v4-flash
       ocr-model: ${QWEN_OCR_MODEL:qwen-vl-ocr}
+      embedding-model: ${QWEN_EMBEDDING_MODEL:text-embedding-v4}
       workspace-id: ${QWEN_WORKSPACE_ID:}
     doubao:
       base-url: https://ark.cn-beijing.volces.com/api/v3

@@ -3,16 +3,17 @@ package com.resume.module.resume.service;
 import com.deepoove.poi.XWPFTemplate;
 import com.deepoove.poi.data.PictureType;
 import com.deepoove.poi.data.Pictures;
+import com.deepoove.poi.data.Texts;
 import com.resume.common.BusinessException;
 import com.resume.module.resume.dto.TemplateRenderData;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -21,11 +22,9 @@ import java.util.Map;
 @Service
 public class TemplateRenderService {
 
-    /** 一寸照渲染尺寸（约 2.5cm × 3.5cm @96dpi） */
-    private static final int PHOTO_WIDTH_PX = 95;
-    private static final int PHOTO_HEIGHT_PX = 133;
-    private static final byte[] TRANSPARENT_PNG = Base64.getDecoder().decode(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+    /** 一寸照渲染尺寸（约 3.2cm × 4.5cm @96dpi，较模板默认略大） */
+    private static final int PHOTO_WIDTH_PX = 120;
+    private static final int PHOTO_HEIGHT_PX = 168;
 
     public byte[] renderWord(String templateClasspathPath, TemplateRenderData data) throws IOException {
         if (templateClasspathPath == null || templateClasspathPath.isBlank()) {
@@ -37,12 +36,15 @@ public class TemplateRenderService {
             throw new BusinessException(404, "模板文件不存在: " + templateClasspathPath);
         }
 
-        Map<String, Object> renderMap = toRenderMap(data);
+        boolean hasPhoto = data.getPhotoBytes() != null && data.getPhotoBytes().length > 0;
+        Map<String, Object> renderMap = toRenderMap(data, hasPhoto);
+
         try (InputStream in = resource.getInputStream();
              XWPFTemplate template = XWPFTemplate.compile(in).render(renderMap);
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             template.write(out);
-            return out.toByteArray();
+            return DocxTemplateSanitizer.normalize(
+                    out.toByteArray(), DocxTemplateSanitizer.textValuesFrom(data), hasPhoto);
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
@@ -51,26 +53,37 @@ public class TemplateRenderService {
         }
     }
 
-    private Map<String, Object> toRenderMap(TemplateRenderData data) {
+    private Map<String, Object> toRenderMap(TemplateRenderData data, boolean hasPhoto) {
         Map<String, Object> map = new HashMap<>();
-        map.put("name", safe(data.getName()));
-        map.put("phone", safe(data.getPhone()));
-        map.put("email", safe(data.getEmail()));
-        map.put("education", safe(data.getEducation()));
-        map.put("workExperience", safe(data.getWorkExperience()));
-        map.put("project", safe(data.getProject()));
-        map.put("skill", safe(data.getSkill()));
-        map.put("summary", safe(data.getSummary()));
-        map.put("photo", buildPhotoRender(data));
+        map.put("name", textField(data.getName()));
+        map.put("phone", textField(data.getPhone()));
+        map.put("email", textField(data.getEmail()));
+        map.put("jobIntention", textField(data.getJobIntention()));
+        map.put("education", textField(data.getEducation()));
+        map.put("workExperience", textField(data.getWorkExperience()));
+        map.put("project", textField(data.getProject()));
+        map.put("skill", textField(data.getSkill()));
+        map.put("summary", textField(data.getSummary()));
+        if (hasPhoto) {
+            map.put("photo", buildPhotoRender(data));
+        } else {
+            map.put("photo", null);
+        }
         return map;
+    }
+
+    private Object textField(String value) {
+        String text = safe(value);
+        if (!text.contains("\n")) {
+            return text;
+        }
+        return Texts.of(text).create();
     }
 
     private Object buildPhotoRender(TemplateRenderData data) {
         byte[] bytes = data.getPhotoBytes();
         if (bytes == null || bytes.length == 0) {
-            return Pictures.ofBytes(TRANSPARENT_PNG, PictureType.PNG)
-                    .size(1, 1)
-                    .create();
+            return null;
         }
         PictureType type = pictureType(data.getPhotoExt());
         return Pictures.ofBytes(bytes, type)

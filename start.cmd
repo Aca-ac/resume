@@ -11,7 +11,7 @@ REM ---- 加载 .env 到当前环境（后端启动必需）----
 if exist ".env" (
   echo [0/3] 加载 .env ...
   for /f "usebackq eol=# tokens=1,* delims==" %%a in (".env") do (
-    if not "%%a"=="" (
+    if not "%%a"=="" if not "%%b"=="" (
       set "%%a=%%b"
     )
   )

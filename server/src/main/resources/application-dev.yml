@@ -16,7 +16,7 @@ app:
   expose-error-details: true
   ai:
     qwen:
-          api-key: ${DASHSCOPE_API_KEY:${QWEN_API_KEY:}}
+      api-key: ${DASHSCOPE_API_KEY:${QWEN_API_KEY:}}
 
 logging:
   level:

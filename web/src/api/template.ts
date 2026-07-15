@@ -1,24 +1,14 @@
 import request from "@/utils/request";
+import type {
+  TemplatePageResult,
+  TemplateRecommendVO,
+  TemplateVO
+} from "@/types/template";
 
 interface ApiResult<T> {
   code: number;
   message: string;
   data: T;
-}
-
-export interface TemplateVO {
-  id: number;
-  name: string;
-  category: string;
-  previewUrl: string;
-  templatePath: string;
-  applicableScene?: string;
-}
-
-export interface TemplateRecommendVO {
-  template: TemplateVO;
-  score: number;
-  reason: string;
 }
 
 function unwrap<T>(res: ApiResult<T>): T {
@@ -28,10 +18,12 @@ function unwrap<T>(res: ApiResult<T>): T {
   return res.data;
 }
 
+export type { TemplateVO, TemplateRecommendVO, TemplatePageResult };
+
 export function fetchTemplates(category?: string, page = 1, size = 20) {
   return request
-    .get<ApiResult<{ records: TemplateVO[]; total: number }>>("/v1/templates", {
-      params: { category, page, size }
+    .get<ApiResult<TemplatePageResult<TemplateVO>>>("/v1/templates", {
+      params: { category: category || undefined, page, size }
     })
     .then(unwrap);
 }

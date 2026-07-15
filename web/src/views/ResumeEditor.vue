@@ -202,6 +202,7 @@ const handleBack = async () => {
   border: 2px dashed #dce8e2;
   color: #a0bcae;
 }
+
 .preview-placeholder .el-icon {
   color: #c8d8d2;
   margin-bottom: 12px;

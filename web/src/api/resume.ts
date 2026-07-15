@@ -1,6 +1,9 @@
 import request from "@/utils/request";
 import { assertDownloadBlob, downloadBlob } from "@/utils/download";
 import type { ResumeItem } from "@/stores/resume";
+import type { ResumeDetailItem } from "@/types/resume";
+import type { ExportResultVO } from "@/types/template";
+import type { ResumeSectionType } from "@/types/template";
 import type { AxiosError } from "axios";
 
 interface ApiResult<T> {
@@ -60,6 +63,7 @@ function toResumeItem(r: {
   title: string;
   sourceType?: string;
   content?: string;
+  jobIntention?: string;
   photoUrl?: string;
   updatedAt?: string;
 }): ResumeItem {
@@ -68,6 +72,7 @@ function toResumeItem(r: {
     title: r.title,
     sourceType: r.sourceType ?? "MANUAL",
     content: r.content ?? "",
+    jobIntention: r.jobIntention ?? "",
     photoUrl: r.photoUrl,
     updatedAt: r.updatedAt
   };
@@ -81,11 +86,73 @@ export function fetchResume(id: number) {
   return request.get<ApiResult<ResumeItem>>(`/v1/resumes/${id}`).then((res) => toResumeItem(unwrap(res)));
 }
 
-export function createResume(data: { title: string; content: string }) {
+export function fetchResumeDetails(resumeId: number) {
+  return request
+    .get<ApiResult<ResumeDetailItem[]>>(`/v1/resumes/${resumeId}/details`)
+    .then(unwrap);
+}
+
+export function addResumeDetail(
+  resumeId: number,
+  data: {
+    sectionType: ResumeSectionType | string;
+    sectionName: string;
+    content: string;
+    sortOrder?: number;
+  }
+) {
+  return request
+    .post<ApiResult<ResumeDetailItem>>(`/v1/resumes/${resumeId}/details`, null, { params: data })
+    .then(unwrap);
+}
+
+export function updateResumeDetail(detailId: number, content: string) {
+  return request
+    .put<ApiResult<void>>(`/v1/resumes/details/${detailId}`, null, { params: { content } })
+    .then(unwrap);
+}
+
+export function deleteResumeDetail(detailId: number) {
+  return request.delete<ApiResult<void>>(`/v1/resumes/details/${detailId}`).then(unwrap);
+}
+
+/** Upsert one section row per sectionType for template export. */
+export async function saveResumeSection(
+  resumeId: number,
+  existing: ResumeDetailItem[],
+  sectionType: ResumeSectionType,
+  sectionName: string,
+  content: string,
+  sortOrder: number
+) {
+  const trimmed = content.trim();
+  const row = existing.find((d) => d.sectionType === sectionType);
+  if (row) {
+    if (!trimmed) {
+      await deleteResumeDetail(row.id);
+      return null;
+    }
+    await updateResumeDetail(row.id, trimmed);
+    return row.id;
+  }
+  if (!trimmed) return null;
+  const created = await addResumeDetail(resumeId, {
+    sectionType,
+    sectionName,
+    content: trimmed,
+    sortOrder
+  });
+  return created.id;
+}
+
+export function createResume(data: { title: string; content: string; jobIntention?: string }) {
   return request.post<ApiResult<ResumeItem>>("/v1/resumes", data).then((res) => toResumeItem(unwrap(res)));
 }
 
-export function updateResume(id: number, data: { title: string; content: string }) {
+export function updateResume(
+  id: number,
+  data: { title?: string; content?: string; jobIntention?: string }
+) {
   return request.put<ApiResult<ResumeItem>>(`/v1/resumes/${id}`, data).then((res) => toResumeItem(unwrap(res)));
 }
 
@@ -167,15 +234,7 @@ export async function exportResumeText(id: number) {
   await downloadExport(`/v1/resumes/${id}/export/text`, `resume-${id}.txt`);
 }
 
-export interface ExportResultVO {
-  exportId: string;
-  resumeId: number;
-  templateId: number;
-  format: string;
-  filename: string;
-  downloadUrl: string;
-  expiresAt?: string;
-}
+export type { ExportResultVO } from "@/types/template";
 
 /** Strip accidental /api prefix so axios baseURL=/api does not become /api/api/... */
 function toAxiosApiPath(url: string): string {

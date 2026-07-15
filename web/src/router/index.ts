@@ -122,6 +122,25 @@ const router = createRouter({
           component: () => import("@/views/ResumeOptimize.vue"),
           meta: { requiresAuth: true, title: 'AI优化简历' }
         },
+        {
+          path: "resumes/:id/template-edit",
+          component: () => import("@/views/ResumeTemplateEdit.vue"),
+          meta: { requiresAuth: true, title: '模板简历编辑' }
+        },
+
+        // ===== 模板 =====
+        {
+          path: "templates",
+          name: "TemplateGallery",
+          component: () => import("@/views/TemplateGallery.vue"),
+          meta: { requiresAuth: true, title: '模板广场' }
+        },
+        {
+          path: "resume/preview",
+          name: "TemplatePreview",
+          component: () => import("@/views/TemplatePreview.vue"),
+          meta: { requiresAuth: true, title: '模板预览' }
+        },
 
         // ===== 匹配 =====
         {
@@ -152,34 +171,6 @@ const router = createRouter({
           path: "profile",
           component: () => import("@/views/Profile.vue"),
           meta: { requiresAuth: true, title: '个人中心' }
-        }
-      ]
-    },
-
-    // ===== 独立的模板相关路由（使用 AppLayout 布局） =====
-    // 注意：这些路由在 AppLayout 的 children 之外，所以需要单独指定布局
-    // 或者可以将它们移到 AppLayout 的 children 中
-    {
-      path: "/templates",
-      component: () => import("@/components/AppLayout.vue"),
-      children: [
-        {
-          path: "",
-          name: "TemplateGallery",
-          component: () => import("@/views/TemplateGallery.vue"),
-          meta: { requiresAuth: true, title: '模板广场' }
-        }
-      ]
-    },
-    {
-      path: "/resume/preview",
-      component: () => import("@/components/AppLayout.vue"),
-      children: [
-        {
-          path: "",
-          name: "TemplatePreview",
-          component: () => import("@/views/TemplatePreview.vue"),
-          meta: { requiresAuth: true, title: '模板预览' }
         }
       ]
     },
