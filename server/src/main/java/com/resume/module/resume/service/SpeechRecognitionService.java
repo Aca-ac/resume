@@ -91,11 +91,17 @@ public class SpeechRecognitionService {
 
     private String mapFormat(String extension) {
         String ext = extension == null ? "" : extension.toLowerCase(Locale.ROOT).replace(".", "");
+        // DashScope paraformer 支持：pcm/wav/mp3/opus/speex/aac/amr（不支持浏览器 webm）
         return switch (ext) {
             case "mp3" -> "mp3";
             case "pcm" -> "pcm";
-            case "opus" -> "opus";
-            case "webm" -> "webm";
+            case "opus", "ogg" -> "opus";
+            case "aac" -> "aac";
+            case "amr" -> "amr";
+            case "speex" -> "speex";
+            case "wav" -> "wav";
+            case "webm" -> throw new BusinessException(400,
+                    "不支持 webm 格式，请上传 16kHz wav/mp3/pcm（见《语音接口联调文档》）");
             default -> "wav";
         };
     }

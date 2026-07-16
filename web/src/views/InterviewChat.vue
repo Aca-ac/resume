@@ -73,16 +73,17 @@
             v-model="answer"
             type="textarea"
             :rows="4"
-            placeholder="输入你的回答…"
+            placeholder="输入你的回答，或使用语音作答…"
             class="input-area"
             resize="vertical"
             @keydown.ctrl.enter="onSend"
             @keydown.meta.enter="onSend"
             aria-describedby="input-hint"
             :aria-invalid="!!inputError"
+            :disabled="loading || recording || recognizing"
         />
         <span id="input-hint" class="sr-only">
-          按 Ctrl+Enter 或 Command+Enter 快速发送
+          按 Ctrl+Enter 或 Command+Enter 快速发送；也可语音作答后识别填入
         </span>
 
         <!-- 输入错误提示 -->
@@ -90,15 +91,31 @@
           <span aria-hidden="true">⚠️</span>
           {{ inputError }}
         </div>
+        <div v-if="recording || recognizing || speaking" class="voice-status" role="status" aria-live="polite">
+          <span v-if="recording">正在录音… 再次点击「语音作答」结束并识别</span>
+          <span v-else-if="recognizing">正在识别语音…</span>
+          <span v-else-if="speaking">面试官播报中…</span>
+        </div>
       </div>
 
       <!-- 操作按钮 -->
       <div class="actions">
         <el-button
+            :type="recording ? 'danger' : 'default'"
+            :loading="recognizing"
+            :disabled="loading || recognizing || interview.finished"
+            @click="onVoiceAnswer"
+            :aria-label="recording ? '停止录音并识别' : '语音作答'"
+        >
+          <span v-if="recording">停止并识别</span>
+          <span v-else-if="recognizing">识别中…</span>
+          <span v-else>语音作答</span>
+        </el-button>
+        <el-button
             type="primary"
             :loading="loading"
             @click="onSend"
-            :disabled="loading || !answer.trim()"
+            :disabled="loading || recording || recognizing || !answer.trim()"
             :aria-label="loading ? '正在发送回答...' : '发送回答'"
         >
           <span v-if="!loading">发送回答</span>
@@ -107,11 +124,15 @@
         </el-button>
         <el-button
             @click="goReport"
-            :disabled="loading"
+            :disabled="loading || recording || recognizing"
             :aria-label="'结束面试并查看报告'"
         >
           结束并查看报告
         </el-button>
+        <el-button text @click="autoSpeak = !autoSpeak" :aria-label="autoSpeak ? '关闭自动播报' : '开启自动播报'">
+          {{ autoSpeak ? "播报：开" : "播报：关" }}
+        </el-button>
+        <el-button v-if="speaking" text type="warning" @click="stopPlayback">停止播报</el-button>
       </div>
 
       <!-- 键盘快捷键提示 -->
@@ -127,11 +148,24 @@ import { computed, onMounted, onBeforeUnmount, ref, nextTick, watch } from "vue"
 import { useRoute, useRouter } from "vue-router";
 import { useInterviewStore } from "@/stores/interview";
 import { createInterviewSocket } from "@/composables/useInterviewWs";
+import { useInterviewVoice } from "@/composables/useInterviewVoice";
 import { ElMessage } from "element-plus";
 
 const route = useRoute();
 const router = useRouter();
 const interview = useInterviewStore();
+const {
+  recording,
+  recognizing,
+  speaking,
+  autoSpeak,
+  startRecording,
+  stopRecordingAndRecognize,
+  cancelRecording,
+  speak,
+  speakQueue,
+  stopPlayback
+} = useInterviewVoice();
 const sessionId = computed(() => Number(route.params.sessionId));
 const answer = ref("");
 const loading = ref(false);
@@ -139,6 +173,8 @@ const inputError = ref("");
 const messagesPanelRef = ref<HTMLElement | null>(null);
 const wsConnected = ref(false);
 let socket: ReturnType<typeof createInterviewSocket> | null = null;
+/** 已播报过的消息 seq，避免重复 TTS */
+let lastSpokenSeq = 0;
 
 const scrollToBottom = () => {
   nextTick(() => {
@@ -156,10 +192,48 @@ watch(
     { immediate: true }
 );
 
+/** 播报面试官最新未播内容（首题 / 评价 / 下一题） */
+async function speakPendingAssistant() {
+  if (!autoSpeak.value || interview.finished) return;
+  const pending = interview.messages.filter((m) => {
+    if (m.role !== "assistant") return false;
+    const seq = m.seq || 0;
+    if (seq > 0 && seq <= lastSpokenSeq) return false;
+    const type = (m.messageType || "").toUpperCase();
+    // 无类型时也播报（兼容旧消息）
+    return !type || type === "QUESTION" || type === "FEEDBACK" || type === "SYSTEM";
+  });
+  if (!pending.length) return;
+  const maxSeq = Math.max(...pending.map((m) => m.seq || 0), lastSpokenSeq);
+  try {
+    await speakQueue(pending.map((m) => m.content));
+  } catch (e: any) {
+    console.warn("TTS failed:", e?.message || e);
+  } finally {
+    lastSpokenSeq = maxSeq;
+  }
+}
+
 onMounted(async () => {
   try {
     await interview.loadSession(sessionId.value);
     scrollToBottom();
+    // 进页播报当前最新面试官内容（tian TTS）
+    const assistants = interview.messages.filter((m) => m.role === "assistant");
+    const lastAssistant = assistants[assistants.length - 1];
+    if (lastAssistant?.content) {
+      // 标记此前消息已处理，只播最后一条，避免一口气读完整场
+      lastSpokenSeq = Math.max(
+        0,
+        ...assistants.slice(0, -1).map((m) => m.seq || 0)
+      );
+      try {
+        await speak(lastAssistant.content);
+        if (lastAssistant.seq) lastSpokenSeq = lastAssistant.seq;
+      } catch (e: any) {
+        console.warn("TTS first question failed:", e?.message || e);
+      }
+    }
   } catch (e: any) {
     ElMessage.error({
       message: e.message || "加载对话失败",
@@ -198,7 +272,33 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   socket?.close();
   socket = null;
+  void cancelRecording();
+  stopPlayback();
 });
+
+async function onVoiceAnswer() {
+  inputError.value = "";
+  if (interview.finished) {
+    ElMessage.warning("面试已结束，请查看报告");
+    return;
+  }
+  try {
+    if (recording.value) {
+      const text = await stopRecordingAndRecognize();
+      answer.value = text;
+      ElMessage.success("识别完成，请确认后发送");
+      document.getElementById("answer-input")?.focus();
+      return;
+    }
+    await startRecording();
+    ElMessage.info("开始录音，说完后再点一次「停止并识别」");
+  } catch (e: any) {
+    ElMessage.error({
+      message: e.message || "语音作答失败",
+      duration: 5000,
+    });
+  }
+}
 
 async function onSend() {
   inputError.value = "";
@@ -219,11 +319,29 @@ async function onSend() {
   }
 
   loading.value = true;
+  stopPlayback();
   try {
     const clientMsgId = `c-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const result = await interview.answer(trimmedAnswer, clientMsgId);
     answer.value = "";
     scrollToBottom();
+    // 按 tian 联调约定：播报评价 + 下一题（优先用 answer 返回，否则扫消息）
+    const toSpeak = [
+      result?.feedback?.content,
+      result?.nextQuestion?.content
+    ].filter(Boolean) as string[];
+    if (toSpeak.length) {
+      try {
+        await speakQueue(toSpeak);
+        const seqs = [result?.feedback?.seq, result?.nextQuestion?.seq]
+          .filter((s): s is number => typeof s === "number" && s > 0);
+        if (seqs.length) lastSpokenSeq = Math.max(lastSpokenSeq, ...seqs);
+      } catch (e: any) {
+        console.warn("TTS after answer failed:", e?.message || e);
+      }
+    } else {
+      await speakPendingAssistant();
+    }
     if (result?.finished) {
       ElMessage.success("面试已结束，正在进入报告页");
       await router.push(`/interview/${sessionId.value}/report`);
@@ -492,6 +610,14 @@ async function goReport() {
 
 .input-error span[aria-hidden="true"] {
   font-size: 16px;
+}
+
+/* ===== 语音状态 ===== */
+.voice-status {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #355c45;
+  font-weight: 600;
 }
 
 /* ===== 操作按钮 ===== */
