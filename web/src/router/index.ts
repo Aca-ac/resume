@@ -163,6 +163,11 @@ const router = createRouter({
           meta: { requiresAuth: true, title: '开始面试' }
         },
         {
+          path: "interview/history",
+          component: () => import("@/views/InterviewHistory.vue"),
+          meta: { requiresAuth: true, title: '面试历史' }
+        },
+        {
           path: "interview/:sessionId/chat",
           component: () => import("@/views/InterviewChat.vue"),
           meta: { requiresAuth: true, title: '模拟面试' }

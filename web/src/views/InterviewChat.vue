@@ -7,7 +7,17 @@
         <span aria-hidden="true">🎤</span>
         模拟面试
       </h1>
-      <p class="hero-subtitle">根据你的简历与目标职位进行多轮问答，结束后可生成面试报告。</p>
+      <p class="hero-subtitle">
+        {{ interview.jobTitle || "通用岗位" }} · 状态：{{ interview.stateLabel }}
+        <span v-if="wsConnected" class="ws-ok">· 实时已连接</span>
+        <span v-else class="ws-off">· 实时未连接（HTTP 模式）</span>
+      </p>
+      <div class="progress-wrap" aria-label="面试进度">
+        <div class="progress-meta">
+          第 {{ interview.questionIndex || 0 }} / {{ interview.maxQuestions || 5 }} 题
+        </div>
+        <el-progress :percentage="interview.progressPercent" :stroke-width="12" />
+      </div>
     </section>
 
     <!-- 主要内容区域 -->
@@ -113,10 +123,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, nextTick, watch } from "vue";
+import { computed, onMounted, onBeforeUnmount, ref, nextTick, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useInterviewStore } from "@/stores/interview";
-import { fetchMessages } from "@/api/interview";
+import { createInterviewSocket } from "@/composables/useInterviewWs";
 import { ElMessage } from "element-plus";
 
 const route = useRoute();
@@ -127,8 +137,9 @@ const answer = ref("");
 const loading = ref(false);
 const inputError = ref("");
 const messagesPanelRef = ref<HTMLElement | null>(null);
+const wsConnected = ref(false);
+let socket: ReturnType<typeof createInterviewSocket> | null = null;
 
-// 自动滚动到底部
 const scrollToBottom = () => {
   nextTick(() => {
     if (messagesPanelRef.value) {
@@ -137,7 +148,6 @@ const scrollToBottom = () => {
   });
 };
 
-// 监听消息变化，自动滚动
 watch(
     () => interview.messages.length,
     () => {
@@ -147,9 +157,8 @@ watch(
 );
 
 onMounted(async () => {
-  interview.sessionId = sessionId.value;
   try {
-    interview.messages = await fetchMessages(sessionId.value);
+    await interview.loadSession(sessionId.value);
     scrollToBottom();
   } catch (e: any) {
     ElMessage.error({
@@ -157,56 +166,80 @@ onMounted(async () => {
       duration: 5000,
     });
   }
+
+  socket = createInterviewSocket(sessionId.value, {
+    onOpen: () => {
+      wsConnected.value = true;
+    },
+    onClose: () => {
+      wsConnected.value = false;
+    },
+    onError: (msg) => {
+      // 不打断 HTTP 流程，仅提示
+      console.warn(msg);
+    },
+    onState: (payload) => {
+      if (payload.state) interview.state = String(payload.state);
+      if (payload.questionIndex != null) interview.questionIndex = Number(payload.questionIndex);
+      if (payload.finished) interview.finished = true;
+    },
+    onSnapshot: async (payload) => {
+      if (payload.state) interview.state = payload.state;
+      if (payload.questionIndex != null) interview.questionIndex = payload.questionIndex;
+      if (payload.lastSeq) interview.lastSeq = payload.lastSeq;
+      // 以服务端完整消息为准
+      await interview.loadSession(sessionId.value);
+    }
+  });
+  socket.setLastSeq(interview.lastSeq || 0);
+  socket.connect();
+});
+
+onBeforeUnmount(() => {
+  socket?.close();
+  socket = null;
 });
 
 async function onSend() {
-  // 清除之前的错误
   inputError.value = "";
-
-  // 验证输入
   const trimmedAnswer = answer.value.trim();
   if (!trimmedAnswer) {
     inputError.value = "请输入您的回答内容";
-    // 聚焦到输入框
-    const inputElement = document.getElementById("answer-input");
-    if (inputElement) {
-      inputElement.focus();
-    }
+    document.getElementById("answer-input")?.focus();
     return;
   }
-
-  // 检查字数限制（可选）
   if (trimmedAnswer.length < 2) {
     inputError.value = "回答内容至少需要2个字符";
-    const inputElement = document.getElementById("answer-input");
-    if (inputElement) {
-      inputElement.focus();
-    }
+    document.getElementById("answer-input")?.focus();
+    return;
+  }
+  if (interview.finished) {
+    ElMessage.warning("面试已结束，请查看报告");
     return;
   }
 
   loading.value = true;
   try {
-    await interview.answer(trimmedAnswer);
+    const clientMsgId = `c-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const result = await interview.answer(trimmedAnswer, clientMsgId);
     answer.value = "";
     scrollToBottom();
+    if (result?.finished) {
+      ElMessage.success("面试已结束，正在进入报告页");
+      await router.push(`/interview/${sessionId.value}/report`);
+    }
   } catch (e: any) {
-    const errorMsg = e.message || "发送失败，请重试";
     ElMessage.error({
-      message: errorMsg,
+      message: e.message || "发送失败，请重试",
       duration: 5000,
     });
-    // 聚焦回输入框以便重试
-    const inputElement = document.getElementById("answer-input");
-    if (inputElement) {
-      inputElement.focus();
-    }
+    document.getElementById("answer-input")?.focus();
   } finally {
     loading.value = false;
   }
 }
 
-function goReport() {
+async function goReport() {
   if (loading.value) {
     ElMessage.warning({
       message: "请等待当前回答发送完成",
@@ -214,8 +247,6 @@ function goReport() {
     });
     return;
   }
-
-  // 检查是否有消息
   if (interview.messages.length === 0) {
     ElMessage.warning({
       message: "暂无对话记录，无法生成报告",
@@ -223,8 +254,17 @@ function goReport() {
     });
     return;
   }
-
-  router.push(`/interview/${sessionId.value}/report`);
+  loading.value = true;
+  try {
+    if (!interview.finished) {
+      await interview.end();
+    }
+    await router.push(`/interview/${sessionId.value}/report`);
+  } catch (e: any) {
+    ElMessage.error(e.message || "结束面试失败");
+  } finally {
+    loading.value = false;
+  }
 }
 </script>
 
@@ -276,6 +316,19 @@ function goReport() {
   color: #3d5a4b;
   font-size: 16px;
   line-height: 1.6;
+}
+.ws-ok { color: #2f7d4a; margin-left: 4px; }
+.ws-off { color: #8a6d3b; margin-left: 4px; }
+.progress-wrap {
+  max-width: 520px;
+  margin: 16px auto 0;
+  text-align: left;
+}
+.progress-meta {
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #355c45;
+  font-weight: 600;
 }
 
 /* ===== 内容区域 ===== */

@@ -1,6 +1,7 @@
 package com.resume.module.resume.service;
 
 import com.resume.module.resume.dto.TemplateRenderData;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -11,10 +12,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AllTemplatesPdfConvertTest {
 
+    private static final String SOFFICE = "C:/Program Files/LibreOffice/program/soffice.com";
+
     private final TemplateRenderService renderService = new TemplateRenderService();
     private final LibreOfficePdfConverter pdfConverter = new LibreOfficePdfConverter(
             new com.resume.config.ExportProperties() {{
-                setLibreofficeCommand("C:/Program Files/LibreOffice/program/soffice.com");
+                setLibreofficeCommand(SOFFICE);
                 setConvertTimeoutSeconds(120);
             }}
     );
@@ -22,6 +25,7 @@ class AllTemplatesPdfConvertTest {
     @ParameterizedTest
     @ValueSource(strings = {"academic", "simple", "professional", "creative"})
     void renderedDocxConvertsToPdf(String style) throws Exception {
+        Assumptions.assumeTrue(Files.exists(Path.of(SOFFICE)), "Skip: LibreOffice not installed");
         byte[] docx = render(style);
         Path debug = Path.of("target", style + "-rendered.docx");
         Files.createDirectories(debug.getParent());

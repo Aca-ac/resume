@@ -38,6 +38,7 @@ export interface JobRecommendation {
   source: JobRecommendSource;  // 'NETWORK' | 'PLATFORM'
   sourceUrl: string | null;
   sourceJobId: number | null;
+  createdAt?: string;
 }
 
 /**

@@ -474,7 +474,7 @@ const handleSave = async () => {
       await loadUserInfo()
       ElMessage.success('个人信息更新成功')
       // 聚焦到"编辑信息"按钮
-      document.querySelector('.card-header .el-button')?.focus()
+      ;(document.querySelector('.card-header .el-button') as HTMLElement | null)?.focus()
     }
   } catch (error: any) {
     console.error('更新个人信息失败:', error)
@@ -506,7 +506,7 @@ const getBubbleStyle = (index: number) => {
 const handleKeydown = (event: KeyboardEvent) => {
   if (event.key === 'Escape' && isEditing.value) {
     handleCancel()
-    document.querySelector('.card-header .el-button')?.focus()
+    ;(document.querySelector('.card-header .el-button') as HTMLElement | null)?.focus()
   }
 }
 

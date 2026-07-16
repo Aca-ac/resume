@@ -6,6 +6,7 @@ import com.resume.module.resume.dto.TemplateRenderData;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -19,15 +20,18 @@ import java.util.zip.ZipInputStream;
 
 class CreativePdfDiagnosticTest {
 
+    private static final String SOFFICE = "C:/Program Files/LibreOffice/program/soffice.com";
+
     private final LibreOfficePdfConverter pdfConverter = new LibreOfficePdfConverter(
             new com.resume.config.ExportProperties() {{
-                setLibreofficeCommand("C:/Program Files/LibreOffice/program/soffice.com");
+                setLibreofficeCommand(SOFFICE);
                 setConvertTimeoutSeconds(120);
             }}
     );
 
     @Test
     void diagnoseCreativeLightVsFull() throws Exception {
+        Assumptions.assumeTrue(Files.exists(Path.of(SOFFICE)), "Skip: LibreOffice not installed");
         byte[] poiOut = renderWithPoiOnly();
         Files.write(Path.of("target/creative-poi-only.docx"), poiOut);
 

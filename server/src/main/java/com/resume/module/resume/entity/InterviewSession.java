@@ -14,9 +14,16 @@ public class InterviewSession {
     private Long id;
     private Long userId;
     private Long resumeId;
+    private Long jobId;
     private String jobTitle;
     private String status;
+    private String state;
+    private Integer questionIndex;
+    private Integer maxQuestions;
+    private Integer lastSeq;
+    private String jdSnapshot;
     private String report;
+    private LocalDateTime endedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

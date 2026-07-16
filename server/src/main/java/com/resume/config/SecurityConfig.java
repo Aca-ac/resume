@@ -38,7 +38,9 @@ public class SecurityConfig {
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/password/reset",
                                 "/api/v1/auth/code/send",
-                                "/templates/**"
+                                "/templates/**",
+                                "/ws/interview",
+                                "/ws/interview/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

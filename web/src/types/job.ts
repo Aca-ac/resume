@@ -54,6 +54,7 @@ export interface JobVO {
     createdAt: string;
     updatedAt: string;
     owner: OwnerVO;
+    commentCount?: number;
 }
 
 /**

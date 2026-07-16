@@ -60,6 +60,7 @@ export interface MatchRecord {
   analysisId?: number;
   analysis: string;
   createdAt?: string;
+  analyzedAt?: string;
 }
 
 function unwrap<T>(res: ApiResult<T>): T {
