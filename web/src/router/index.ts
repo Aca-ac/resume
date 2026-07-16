@@ -101,7 +101,7 @@ const router = createRouter({
         // 新建简历（使用统一编辑器）
         {
           path: "resumes/new",
-          component: () => import("@/views/ResumeEditor.vue"),
+          component: () => import("@/views/ResumeTemplateEdit.vue"),
           meta: { requiresAuth: true, title: '新建简历' }
         },
         // 编辑简历（使用统一编辑器）

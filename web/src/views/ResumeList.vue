@@ -38,29 +38,27 @@
         <el-table-column prop="updatedAt" label="更新时间" width="160" />
         <el-table-column label="操作" width="520" fixed="right">
           <template #default="{ row }">
-            <el-button link class="action-btn" @click="$router.push(`/resumes/${row.id}/edit`)">
-              编辑
-            </el-button>
-            <el-button link class="action-btn" @click="$router.push(`/resumes/${row.id}/template-edit`)">
-              模板编辑
-            </el-button>
-            <el-button link type="primary" class="action-btn" @click="goTemplateExport(row.id)">
-              模板导出
-            </el-button>
-            <el-button link type="primary" class="action-btn" @click="$router.push(`/resumes/${row.id}/optimize`)">
-              ✨ 优化
-            </el-button>
-            <el-button link class="action-btn" @click="onExport(row.id)">
-              📄 PDF
-            </el-button>
-            <el-button link type="danger" class="action-btn" @click="onDelete(row.id)">
-              删除
-            </el-button>
+            <div class="action-group">
+              <el-button link class="action-btn" @click="$router.push(`/resumes/${row.id}/template-edit`)">
+                模板编辑
+              </el-button>
+              <el-button link type="primary" class="action-btn" @click="$router.push(`/resumes/${row.id}/optimize`)">
+                ✨ 优化
+              </el-button>
+              <el-button link class="action-btn" @click="onExport(row.id)">
+                📄 PDF
+              </el-button>
+              <el-button link type="primary" class="action-btn" @click="goTemplateExport(row.id)">
+                模板导出
+              </el-button>
+              <el-button link type="danger" class="action-btn delete-btn" @click="onDelete(row.id)">
+                删除
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
     </section>
-
 
     <div class="blank-area"></div>
   </div>
@@ -110,8 +108,8 @@ async function onExport(id: number) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "导出失败";
     ElMessage.error(msg.includes("timeout") || msg.includes("超时")
-      ? "导出超时：请确认后端已启动，或改用编辑页内容较短的简历重试"
-      : msg);
+        ? "导出超时：请确认后端已启动，或改用编辑页内容较短的简历重试"
+        : msg);
   } finally {
     loadingMsg.close();
   }
@@ -224,13 +222,20 @@ async function onExport(id: number) {
 }
 .action-btn:hover {
   text-decoration: underline;
-
 }
-
 
 .blank-area {
   width: 100%;
   min-height: 80px;
+}
+.action-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
 
+.delete-btn {
+  margin-left: auto;
 }
 </style>
