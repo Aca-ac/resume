@@ -295,7 +295,7 @@ onMounted(async () => {
   }
   try {
     const page = await jobApi.getJobList({ page: 1, size: 50 });
-    myJobs.value = page.records || [];
+    myJobs.value = page.content || [];
   } catch {
     myJobs.value = [];
   }

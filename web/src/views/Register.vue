@@ -414,9 +414,8 @@ const handleKeydown = (event: KeyboardEvent) => {
         registerForm.value[formKey as keyof typeof registerForm.value] = ''
         // 清除对应的错误
         const errorKey = field === 'confirmPassword' ? 'confirmPasswordError' : `${field}Error`
-        if (errorKey in this) {
-          // 使用 ref 方式清除
-        }
+        void errorKey
+        // 错误清除走 formErrors / registerForm，这里不再依赖 this
       }
     }
   }

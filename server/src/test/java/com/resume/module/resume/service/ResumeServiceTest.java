@@ -7,6 +7,7 @@ import com.resume.module.resume.entity.ResumeDetail;
 import com.resume.module.resume.mapper.ResumeDetailMapper;
 import com.resume.module.resume.mapper.ResumeFileMapper;
 import com.resume.module.resume.mapper.ResumeMapper;
+import com.resume.module.resume.mapper.ResumeSemanticVectorMapper;
 import com.resume.config.StorageProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,6 +33,7 @@ class ResumeServiceTest {
     @Mock private ResumeOptimizeService optimizeService;
     @Mock private ResumePhotoService resumePhotoService;
     @Mock private ResumeSummaryStore summaryStore;
+    @Mock private ResumeSemanticVectorMapper resumeSemanticVectorMapper;
 
     @InjectMocks
     private ResumeService resumeService;
