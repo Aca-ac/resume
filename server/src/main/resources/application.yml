@@ -78,6 +78,16 @@ app:
     convert-timeout-seconds: 120
     export-dir: uploads/exports
     file-ttl-hours: 24
+  voice:
+    upload-dir: uploads/voice
+    max-file-size: 10485760
+    file-ttl-hours: 24
+    asr-model: paraformer-realtime-v2
+    asr-sample-rate: 16000
+    tts-model: cosyvoice-v3-flash
+    tts-voice: longanyang
+    max-retries: 2
+    retry-delay-ms: 500
 
 management:
   endpoints:

@@ -39,6 +39,7 @@ public class InterviewService {
     private final InterviewMessageMapper messageMapper;
     private final ResumeMapper resumeMapper;
     private final ResumeSummaryStore summaryStore;
+    private final InterviewPromptService interviewPromptService;
     private final RestClient restClient = RestClient.create();
 
     @Value("${app.ai.qwen.api-key:}")
@@ -73,7 +74,7 @@ public class InterviewService {
         sessionMapper.insert(session);
 
         String firstQuestion = chat(List.of(
-                Map.of("role", "system", "content", systemPrompt(title, resumeContent)),
+                Map.of("role", "system", "content", buildQuestionPrompt(title, resumeContent, "")),
                 Map.of("role", "user", "content", "请提出第一个面试问题，只输出问题本身。")
         ));
         saveMessage(session.getId(), "assistant", firstQuestion, 1);
@@ -140,10 +141,8 @@ public class InterviewService {
                 .collect(Collectors.joining("\n"));
 
         String report = chat(List.of(
-                Map.of("role", "system", "content",
-                        "你是面试评估专家。请根据对话生成中文面试报告，包含：整体表现、优点、不足、改进建议。不要输出 JSON。"),
-                Map.of("role", "user", "content",
-                        "目标职位：" + session.getJobTitle() + "\n\n面试对话：\n" + transcript)
+                Map.of("role", "system", "content", buildSummaryPrompt(session.getJobTitle(), loadSummary(session.getResumeId()), transcript)),
+                Map.of("role", "user", "content", "请生成面试复盘报告。")
         ));
 
         session.setReport(report);
@@ -151,6 +150,23 @@ public class InterviewService {
         session.setUpdatedAt(LocalDateTime.now());
         sessionMapper.updateById(session);
         return toSessionVo(session);
+    }
+
+    private String buildQuestionPrompt(String jobTitle, String resumeContent, String jdText) {
+        return interviewPromptService.questionPrompt(Map.of(
+                "jobTitle", jobTitle,
+                "jdText", jdText == null ? "" : jdText,
+                "resumeContent", resumeContent
+        ));
+    }
+
+    private String buildSummaryPrompt(String jobTitle, String resumeContent, String transcript) {
+        return interviewPromptService.summaryPrompt(Map.of(
+                "jobTitle", jobTitle,
+                "jdText", "",
+                "resumeContent", resumeContent,
+                "transcript", transcript
+        ));
     }
 
     private String systemPrompt(String jobTitle, String resumeContent) {
