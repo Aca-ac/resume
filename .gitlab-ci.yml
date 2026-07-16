@@ -30,7 +30,7 @@ backend-test:
   extends: .test-base
   image:
     name: docker.m.daocloud.io/library/maven:3.9-eclipse-temurin-17
-    pull_policy: if-not-present
+    pull_policy: always
   before_script:
     - mkdir -p /cache/maven/repository
   script:
@@ -48,7 +48,7 @@ frontend-test:
   extends: .test-base
   image:
     name: docker.m.daocloud.io/library/node:20-alpine
-    pull_policy: if-not-present
+    pull_policy: always
   before_script:
     - cd web
     - npm config set registry https://registry.npmmirror.com
