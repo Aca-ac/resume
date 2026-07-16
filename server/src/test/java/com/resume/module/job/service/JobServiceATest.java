@@ -2,14 +2,19 @@ package com.resume.module.job.service;
 
 import com.resume.common.BusinessException;
 import com.resume.module.job.dto.JobRecommendationVO;
+import com.resume.module.job.util.UrlChecker;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.mockito.ArgumentMatchers;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.util.ReflectionTestUtils;
+
+import static org.mockito.Mockito.when;
 
 
 import java.util.List;
@@ -37,12 +42,16 @@ class JobServiceATest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @MockBean
+    private UrlChecker urlChecker;
+
     @Value("${app.ai.doubao.api-key:}")
     private String apiKey;
 
     @Test
     void searchJobs_returnsRecommendations_whenAllDependenciesAvailable() {
         skipIfMissingApiKey();
+        when(urlChecker.isUrlAccessible(ArgumentMatchers.anyString())).thenReturn(true);
 
         List<JobRecommendationVO> recommendations;
         try {

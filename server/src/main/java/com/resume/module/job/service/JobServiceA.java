@@ -7,10 +7,12 @@ import com.resume.module.job.dto.JobRecommendationVO;
 import com.resume.module.job.dto.JobSearchResultDTO;
 import com.resume.module.job.entity.TargetJob;
 import com.resume.module.job.mapper.TargetJobMapper;
+import com.resume.module.job.util.UrlChecker;
 import com.resume.module.resume.entity.Resume;
 import com.resume.module.resume.entity.ResumeDetail;
 import com.resume.module.resume.mapper.ResumeDetailMapper;
 import com.resume.module.resume.mapper.ResumeMapper;
+import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +29,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Slf4j
 @Service
@@ -38,7 +43,9 @@ public class JobServiceA {
     private final TargetJobMapper targetJobMapper;
     private final ObjectMapper objectMapper;
     private final ResourceLoader resourceLoader;
+    private final UrlChecker urlChecker;
     private final RestClient restClient = RestClient.create();
+    private final ExecutorService urlCheckExecutor = Executors.newFixedThreadPool(5);
 
     @Value("${app.ai.doubao.api-key:}")
     private String apiKey;
@@ -292,7 +299,32 @@ public class JobServiceA {
             }
             filtered.add(vo);
         }
-        return filtered;
+
+        if (filtered.isEmpty()) {
+            return filtered;
+        }
+
+        List<CompletableFuture<Boolean>> futures = new ArrayList<>();
+        for (JobRecommendationVO vo : filtered) {
+            futures.add(CompletableFuture.supplyAsync(
+                    () -> urlChecker.isUrlAccessible(vo.getSourceUrl()),
+                    urlCheckExecutor
+            ));
+        }
+
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+        List<JobRecommendationVO> accessibleResults = new ArrayList<>();
+        for (int i = 0; i < filtered.size(); i++) {
+            boolean accessible = futures.get(i).join();
+            if (accessible) {
+                accessibleResults.add(filtered.get(i));
+            } else {
+                log.debug("过滤掉不可访问的链接: {}", filtered.get(i).getSourceUrl());
+            }
+        }
+
+        return accessibleResults;
     }
 
     private void saveJobsToDatabase(List<JobRecommendationVO> results, Long userId) {
@@ -317,6 +349,11 @@ public class JobServiceA {
                 log.warn("Failed to save job to database: {}", e.getMessage());
             }
         }
+    }
+
+    @PreDestroy
+    public void destroy() {
+        urlCheckExecutor.shutdown();
     }
 
     private record ParsedMatchScore(int matchScore, String matchReason) {
