@@ -39,12 +39,15 @@ public class TemplateRenderService {
         boolean hasPhoto = data.getPhotoBytes() != null && data.getPhotoBytes().length > 0;
         Map<String, Object> renderMap = toRenderMap(data, hasPhoto);
 
-        try (InputStream in = resource.getInputStream();
-             XWPFTemplate template = XWPFTemplate.compile(in).render(renderMap);
-             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            template.write(out);
-            return DocxTemplateSanitizer.normalize(
-                    out.toByteArray(), DocxTemplateSanitizer.textValuesFrom(data), hasPhoto);
+        try (InputStream in = resource.getInputStream()) {
+            try (XWPFTemplate template = XWPFTemplate.compile(in).render(renderMap);
+                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                template.write(out);
+                // 创意模板正文/装饰均在浮动 anchor 内；FULL 去 anchor 会导致 PDF 空白，与学术/简约/专业一样用 LIGHT
+                return DocxTemplateSanitizer.normalize(
+                        out.toByteArray(), DocxTemplateSanitizer.textValuesFrom(data), hasPhoto,
+                        DocxTemplateSanitizer.SanitizeMode.LIGHT);
+            }
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {

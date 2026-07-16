@@ -7,6 +7,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -15,25 +16,55 @@ import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 /**
- * 渲染后清理 docx：去掉浮动层与 VML/Choice 重复内容；清除 LibreOffice PDF 会画成白块的文字底纹；仅补全 poi-tl 未替换的占位符。
+ * 渲染后清理 docx：合并 AlternateContent 重复层；creative 额外去掉浮动 anchor；补全 poi-tl 未替换占位符。
  */
 final class DocxTemplateSanitizer {
 
-    private static final Pattern ANCHOR = Pattern.compile("<wp:anchor[\\s\\S]*?</wp:anchor>");
+    enum SanitizeMode {
+        /** 仅合并 AlternateContent，保留装饰性 anchor（简约/学术/专业） */
+        LIGHT,
+        /** 合并 AlternateContent 并移除全部 anchor（创意模板 PDF 叠层修复） */
+        FULL
+    }
+
+    private static final Pattern ANCHOR = Pattern.compile("<wp:anchor[^>]*>([\\s\\S]*?)</wp:anchor>");
     private static final Pattern ALTERNATE = Pattern.compile("<mc:AlternateContent>[\\s\\S]*?</mc:AlternateContent>");
     private static final Pattern CHOICE_INNER = Pattern.compile("<mc:Choice[^>]*>([\\s\\S]*?)</mc:Choice>");
     private static final Pattern FALLBACK = Pattern.compile("<mc:Fallback>([\\s\\S]*?)</mc:Fallback>");
     private static final Pattern TEXT_RUN = Pattern.compile("<w:t[^>]*>([\\s\\S]*?)</w:t>");
-    private static final Pattern PARAGRAPH = Pattern.compile("<w:p[\\s\\S]*?</w:p>");
-    private static final Pattern SHADING = Pattern.compile("<w:shd[^>]*/>", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PICT = Pattern.compile("<w:pict>[\\s\\S]*?</w:pict>");
+    private static final Pattern DRAWING = Pattern.compile("<w:drawing>[\\s\\S]*?</w:drawing>");
+    private static final Pattern TEXTBOX_CONTENT = Pattern.compile("<w:txbxContent>[\\s\\S]*?</w:txbxContent>");
+    private static final Pattern VML_TEXTBOX = Pattern.compile("<v:textbox>[\\s\\S]*?</v:textbox>", Pattern.CASE_INSENSITIVE);
+
+    private static final Pattern VML_RECT = Pattern.compile("<v:rect\\b[^>]*(?:/>|>[\\s\\S]*?</v:rect>)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern VML_OVAL = Pattern.compile("<v:oval\\b[^>]*(?:/>|>[\\s\\S]*?</v:oval>)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern VML_SHAPE = Pattern.compile("<v:shape\\b[^>]*>[\\s\\S]*?</v:shape>", Pattern.CASE_INSENSITIVE);
 
     private DocxTemplateSanitizer() {
     }
 
-    static byte[] normalize(byte[] docx, Map<String, String> textValues, boolean hasPhoto) throws IOException {
+    /** 渲染前：仅合并 AlternateContent，避免 poi-tl 对 Choice/Fallback 双占位各渲染一次（部分模板 XML 会因此损坏，慎用）。 */
+    static byte[] prepareTemplate(byte[] docx) throws IOException {
         String xml = readDocumentXml(docx);
-        xml = stripFloatingLayers(xml);
-        xml = stripWhiteBackgrounds(xml);
+        xml = mergeAlternateContent(xml, SanitizeMode.LIGHT);
+        return writeDocumentXml(docx, xml);
+    }
+
+    static byte[] normalize(byte[] docx, Map<String, String> textValues, boolean hasPhoto) throws IOException {
+        return normalize(docx, textValues, hasPhoto, SanitizeMode.LIGHT);
+    }
+
+    static byte[] normalize(byte[] docx, Map<String, String> textValues, boolean hasPhoto, SanitizeMode mode)
+            throws IOException {
+        String xml = readDocumentXml(docx);
+        xml = stripFloatingLayers(xml, mode);
+        if (hasPhoto) {
+            xml = dedupePortraitPhotoAnchors(xml);
+        }
+        if (mode == SanitizeMode.LIGHT) {
+            xml = removeBrokenVmlTextboxes(xml);
+        }
         xml = fillRemainingPlaceholders(xml, textValues);
         if (!hasPhoto) {
             xml = xml.replace("{{@photo}}", "");
@@ -56,46 +87,82 @@ final class DocxTemplateSanitizer {
     }
 
     static String stripFloatingLayers(String xml) {
-        String withoutAnchors = ANCHOR.matcher(xml).replaceAll("");
-
-        StringBuilder out = new StringBuilder(withoutAnchors.length());
-        Matcher altMatcher = ALTERNATE.matcher(withoutAnchors);
-        int last = 0;
-        while (altMatcher.find()) {
-            out.append(withoutAnchors, last, altMatcher.start());
-            out.append(resolveAlternate(altMatcher.group()));
-            last = altMatcher.end();
-        }
-        out.append(withoutAnchors.substring(last));
-        return out.toString();
+        return stripFloatingLayers(xml, SanitizeMode.FULL);
     }
 
-    static String stripWhiteBackgrounds(String xml) {
-        Matcher matcher = SHADING.matcher(xml);
+    static String stripFloatingLayers(String xml, SanitizeMode mode) {
+        String merged = mergeAlternateContent(xml, mode);
+        if (mode == SanitizeMode.FULL) {
+            merged = removeBrokenVmlTextboxes(merged);
+            return unwrapAnchors(merged);
+        }
+        return merged;
+    }
+
+    private static String unwrapAnchors(String xml) {
+        return ANCHOR.matcher(xml).replaceAll("$1");
+    }
+
+    /** poi-tl 可能对 AlternateContent 的 Choice/Fallback 各渲染一次照片，保留首个一寸照 anchor。 */
+    private static String dedupePortraitPhotoAnchors(String xml) {
         StringBuilder out = new StringBuilder(xml.length());
+        Matcher matcher = ANCHOR.matcher(xml);
         int last = 0;
+        boolean keptPortrait = false;
         while (matcher.find()) {
-            String tag = matcher.group();
-            if (!isWhiteFill(tag)) {
-                continue;
-            }
             out.append(xml, last, matcher.start());
+            String anchor = matcher.group();
+            if (isPortraitPhotoAnchor(anchor)) {
+                if (!keptPortrait) {
+                    out.append(anchor);
+                    keptPortrait = true;
+                }
+            } else {
+                out.append(anchor);
+            }
             last = matcher.end();
         }
         out.append(xml.substring(last));
         return out.toString();
     }
 
-    private static boolean isWhiteFill(String shadingTag) {
-        Matcher fill = Pattern.compile("w:fill=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE).matcher(shadingTag);
-        if (!fill.find()) {
-            return false;
-        }
-        String color = fill.group(1).replace("#", "");
-        return "FFFFFF".equalsIgnoreCase(color) || "FFF".equalsIgnoreCase(color);
+    private static boolean isPortraitPhotoAnchor(String anchor) {
+        return (anchor.contains("wps:txbx") || anchor.contains("txBox=\"1\""))
+                && (anchor.contains("a:blip") || anchor.contains("pic:pic"));
     }
 
-    private static String resolveAlternate(String block) {
+    private static final Pattern BROKEN_VML_TEXTBOX = Pattern.compile(
+            "<v:textbox[^>]*>\\s*(?:</w:r>\\s*)?(?:</w:p>\\s*)?(?:</w:txbxContent>\\s*)?</v:textbox>",
+            Pattern.CASE_INSENSITIVE);
+
+    private static String removeBrokenVmlTextboxes(String xml) {
+        String prev;
+        String result = xml;
+        do {
+            prev = result;
+            result = BROKEN_VML_TEXTBOX.matcher(result).replaceAll("");
+        } while (!result.equals(prev));
+        return result;
+    }
+
+    private static String mergeAlternateContent(String xml) {
+        return mergeAlternateContent(xml, SanitizeMode.LIGHT);
+    }
+
+    private static String mergeAlternateContent(String xml, SanitizeMode mode) {
+        StringBuilder out = new StringBuilder(xml.length());
+        Matcher altMatcher = ALTERNATE.matcher(xml);
+        int last = 0;
+        while (altMatcher.find()) {
+            out.append(xml, last, altMatcher.start());
+            out.append(resolveAlternate(altMatcher.group(), mode));
+            last = altMatcher.end();
+        }
+        out.append(xml.substring(last));
+        return out.toString();
+    }
+
+    private static String resolveAlternate(String block, SanitizeMode mode) {
         Matcher choice = CHOICE_INNER.matcher(block);
         Matcher fallback = FALLBACK.matcher(block);
         String choiceInner = choice.find() ? choice.group(1) : "";
@@ -105,9 +172,7 @@ final class DocxTemplateSanitizer {
 
         if (choiceHas && fallbackHas) {
             String merged = choiceInner;
-            if (!containsInlinePhoto(choiceInner)) {
-                merged += extractPhotoParagraphs(fallbackInner);
-            }
+            merged += extractFallbackSupplement(fallbackInner, choiceInner, mode);
             return merged;
         }
         if (choiceHas) {
@@ -117,6 +182,10 @@ final class DocxTemplateSanitizer {
             return fallbackInner;
         }
         return "";
+    }
+
+    private static String resolveAlternate(String block) {
+        return resolveAlternate(block, SanitizeMode.LIGHT);
     }
 
     private static String fillRemainingPlaceholders(String xml, Map<String, String> textValues) {
@@ -131,16 +200,91 @@ final class DocxTemplateSanitizer {
         return xml.contains("pic:pic") || xml.contains("a:blip");
     }
 
-    private static String extractPhotoParagraphs(String fallbackInner) {
-        Matcher para = PARAGRAPH.matcher(fallbackInner);
+    private static String extractFallbackSupplement(String fallbackInner, String choiceInner, SanitizeMode mode) {
         StringBuilder sb = new StringBuilder();
-        while (para.find()) {
-            String p = para.group();
-            if (containsInlinePhoto(p) || p.contains("@photo")) {
-                sb.append(p);
-            }
-        }
+        appendGraphicsAbsentFromChoice(fallbackInner, choiceInner, sb, mode);
         return sb.toString();
+    }
+
+    private static void appendGraphicsAbsentFromChoice(
+            String source, String choiceInner, StringBuilder sb, SanitizeMode mode) {
+        boolean choiceHasPhoto = containsInlinePhoto(choiceInner) || choiceInner.contains("@photo");
+        Matcher pict = PICT.matcher(source);
+        while (pict.find()) {
+            String original = pict.group();
+            if (containsTextLayer(original)) {
+                if (mode == SanitizeMode.FULL) {
+                    appendCreativeDecorativeVml(original, choiceInner, choiceHasPhoto, sb);
+                }
+                continue;
+            }
+            appendGraphicIfAbsent(stripTextFromGraphicBlock(original), choiceInner, choiceHasPhoto, sb);
+        }
+        Matcher drawingMatcher = DRAWING.matcher(source);
+        while (drawingMatcher.find()) {
+            String original = drawingMatcher.group();
+            if (containsTextLayer(original)) {
+                if (mode == SanitizeMode.FULL) {
+                    appendGraphicIfAbsent(stripTextFromGraphicBlock(original), choiceInner, choiceHasPhoto, sb);
+                }
+                continue;
+            }
+            appendGraphicIfAbsent(stripTextFromGraphicBlock(original), choiceInner, choiceHasPhoto, sb);
+        }
+    }
+
+    /** 创意模板 Fallback 常与 Choice 同层；只提取 v:rect 等纯色装饰，跳过含 textbox 的 shape。 */
+    private static void appendCreativeDecorativeVml(
+            String block, String choiceInner, boolean choiceHasPhoto, StringBuilder sb) {
+        appendVmlFragments(VML_RECT, block, choiceInner, choiceHasPhoto, sb);
+        appendVmlFragments(VML_OVAL, block, choiceInner, choiceHasPhoto, sb);
+        Matcher shapeMatcher = VML_SHAPE.matcher(block);
+        while (shapeMatcher.find()) {
+            String shape = shapeMatcher.group();
+            if (shape.toLowerCase(Locale.ROOT).contains("v:textbox")) {
+                continue;
+            }
+            appendGraphicIfAbsent(stripTextFromGraphicBlock(shape), choiceInner, choiceHasPhoto, sb);
+        }
+    }
+
+    private static void appendVmlFragments(
+            Pattern pattern, String block, String choiceInner, boolean choiceHasPhoto, StringBuilder sb) {
+        Matcher matcher = pattern.matcher(block);
+        while (matcher.find()) {
+            appendGraphicIfAbsent(matcher.group(), choiceInner, choiceHasPhoto, sb);
+        }
+    }
+
+    private static void appendGraphicIfAbsent(
+            String block, String choiceInner, boolean choiceHasPhoto, StringBuilder sb) {
+        if (block.isBlank() || !containsDecorativeDrawing(block) || choiceInner.contains(block)) {
+            return;
+        }
+        if (choiceHasPhoto && containsInlinePhoto(block)) {
+            return;
+        }
+        sb.append(block);
+    }
+
+    private static boolean containsTextLayer(String block) {
+        return block.contains("v:textbox") || block.contains("w:txbxContent");
+    }
+
+    private static String stripTextFromGraphicBlock(String block) {
+        String stripped = TEXT_RUN.matcher(block).replaceAll("");
+        stripped = TEXTBOX_CONTENT.matcher(stripped).replaceAll("");
+        stripped = VML_TEXTBOX.matcher(stripped).replaceAll("");
+        return stripped;
+    }
+
+    private static boolean containsDecorativeDrawing(String xml) {
+        return xml.contains("v:shape")
+                || xml.contains("v:rect")
+                || xml.contains("v:oval")
+                || xml.contains("wps:wsp")
+                || xml.contains("<w:drawing")
+                || xml.contains("<w:pict");
     }
 
     private static boolean hasContent(String xml) {
@@ -148,6 +292,9 @@ final class DocxTemplateSanitizer {
             return false;
         }
         if (containsInlinePhoto(xml)) {
+            return true;
+        }
+        if (containsDecorativeDrawing(xml)) {
             return true;
         }
         Matcher m = TEXT_RUN.matcher(xml);
