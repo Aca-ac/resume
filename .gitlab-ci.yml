@@ -1,5 +1,5 @@
 # GitLab CI/CD - Resume Assistant
-# Runner: WSL-Docker-Runner #58, tag #win-docker, docker executor
+# Prefer online project runner: aliyun-docker-runner (#93, tag docker)
 
 workflow:
   rules:
@@ -19,7 +19,7 @@ variables:
   stage: test
   tags: ["docker"]
   interruptible: true
-  timeout: 4m
+  timeout: 15m
   retry:
     max: 1
     when:
@@ -29,7 +29,7 @@ variables:
 backend-test:
   extends: .test-base
   image:
-    name: docker.m.daocloud.io/library/maven:3.9-eclipse-temurin-17
+    name: maven:3.9-eclipse-temurin-17
     pull_policy: always
   before_script:
     - mkdir -p /cache/maven/repository
@@ -47,7 +47,7 @@ backend-test:
 frontend-test:
   extends: .test-base
   image:
-    name: docker.m.daocloud.io/library/node:20-alpine
+    name: node:20-alpine
     pull_policy: always
   before_script:
     - cd web
