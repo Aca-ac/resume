@@ -17,7 +17,7 @@ variables:
 
 .test-base:
   stage: test
-  tags: ["win-docker"]
+  tags: ["docker"]
   interruptible: true
   timeout: 4m
   retry:
