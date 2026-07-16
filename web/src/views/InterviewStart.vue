@@ -11,6 +11,7 @@
         选择一份简历和目标职位，AI 面试官将根据你的经历进行针对性提问，
         帮助你提前适应真实面试场景，提升应答能力。
       </p>
+      <el-button text type="primary" @click="router.push('/interview/history')">查看面试历史 →</el-button>
     </header>
 
     <!-- 面试设置卡片 -->
@@ -75,11 +76,33 @@
                 :aria-invalid="!!formErrors.jobTitle"
                 @input="clearFieldError('jobTitle')"
             />
-            <div id="job-title-hint" class="form-hint">输入你希望应聘的职位名称</div>
+            <div id="job-title-hint" class="form-hint">也可从下方已保存岗位中选择，自动带出 JD</div>
             <div v-if="formErrors.jobTitle" class="field-error" role="alert">
               <span aria-hidden="true">⚠️</span>
               {{ formErrors.jobTitle }}
             </div>
+          </el-form-item>
+
+          <el-form-item label="关联目标岗位（可选）">
+            <el-select
+                v-model="formData.jobId"
+                clearable
+                filterable
+                style="width: 100%"
+                placeholder="选择已保存的目标岗位（可选）"
+                @change="onJobPicked"
+            >
+              <el-option
+                  v-for="j in myJobs"
+                  :key="j.id"
+                  :label="j.jobName"
+                  :value="j.id"
+              />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="问题数量">
+            <el-input-number v-model="formData.maxQuestions" :min="3" :max="10" />
           </el-form-item>
 
           <!-- 提交按钮 -->
@@ -149,6 +172,8 @@ import { useRouter } from "vue-router";
 import { ChatDotRound } from "@element-plus/icons-vue";
 import { useInterviewStore } from "@/stores/interview";
 import { useResumeStore } from "@/stores/resume";
+import { jobApi } from "@/api/job";
+import type { JobSimple } from "@/types/job";
 import { ElMessage } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
 
@@ -162,8 +187,20 @@ const formRef = ref<FormInstance>();
 // ===== 表单数据 =====
 const formData = reactive({
   resumeId: null as number | null,
-  jobTitle: "后端开发工程师"
+  jobTitle: "后端开发工程师",
+  jobId: null as number | null,
+  maxQuestions: 5
 });
+const myJobs = ref<JobSimple[]>([]);
+
+function onJobPicked(id: number | null) {
+  if (!id) return;
+  const job = myJobs.value.find((j) => j.id === id);
+  if (job?.jobName) {
+    formData.jobTitle = job.jobName;
+    clearFieldError("jobTitle");
+  }
+}
 
 // ===== 表单验证规则 =====
 const formRules: FormRules = {
@@ -256,6 +293,12 @@ onMounted(async () => {
       duration: 5000,
     });
   }
+  try {
+    const page = await jobApi.getJobList({ page: 1, size: 50 });
+    myJobs.value = page.records || [];
+  } catch {
+    myJobs.value = [];
+  }
 });
 
 // ===== 提交表单 =====
@@ -302,7 +345,12 @@ async function onStart() {
 
   loading.value = true;
   try {
-    const session = await interview.start(formData.resumeId, formData.jobTitle);
+    const session = await interview.start(
+      formData.resumeId,
+      formData.jobTitle,
+      formData.jobId || undefined,
+      formData.maxQuestions
+    );
     // 跳转到聊天页面
     await router.push(`/interview/${session.id}/chat`);
   } catch (e: any) {

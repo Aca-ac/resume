@@ -14,7 +14,12 @@ public class InterviewMessage {
     private Long id;
     private Long sessionId;
     private String role;
+    private String messageType;
+    private Integer questionIndex;
     private String content;
+    private String evaluation;
+    private Integer seq;
+    private String clientMsgId;
     private Integer sortOrder;
     private LocalDateTime createdAt;
 }
