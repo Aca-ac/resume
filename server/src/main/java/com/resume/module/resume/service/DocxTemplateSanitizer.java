@@ -15,7 +15,7 @@ import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 /**
- * 渲染后清理 docx：去掉浮动层与 VML/Choice 重复内容；仅补全 poi-tl 未替换的占位符。
+ * 渲染后清理 docx：去掉浮动层与 VML/Choice 重复内容；清除 LibreOffice PDF 会画成白块的文字底纹；仅补全 poi-tl 未替换的占位符。
  */
 final class DocxTemplateSanitizer {
 
@@ -25,6 +25,7 @@ final class DocxTemplateSanitizer {
     private static final Pattern FALLBACK = Pattern.compile("<mc:Fallback>([\\s\\S]*?)</mc:Fallback>");
     private static final Pattern TEXT_RUN = Pattern.compile("<w:t[^>]*>([\\s\\S]*?)</w:t>");
     private static final Pattern PARAGRAPH = Pattern.compile("<w:p[\\s\\S]*?</w:p>");
+    private static final Pattern SHADING = Pattern.compile("<w:shd[^>]*/>", Pattern.CASE_INSENSITIVE);
 
     private DocxTemplateSanitizer() {
     }
@@ -32,6 +33,7 @@ final class DocxTemplateSanitizer {
     static byte[] normalize(byte[] docx, Map<String, String> textValues, boolean hasPhoto) throws IOException {
         String xml = readDocumentXml(docx);
         xml = stripFloatingLayers(xml);
+        xml = stripWhiteBackgrounds(xml);
         xml = fillRemainingPlaceholders(xml, textValues);
         if (!hasPhoto) {
             xml = xml.replace("{{@photo}}", "");
@@ -66,6 +68,31 @@ final class DocxTemplateSanitizer {
         }
         out.append(withoutAnchors.substring(last));
         return out.toString();
+    }
+
+    static String stripWhiteBackgrounds(String xml) {
+        Matcher matcher = SHADING.matcher(xml);
+        StringBuilder out = new StringBuilder(xml.length());
+        int last = 0;
+        while (matcher.find()) {
+            String tag = matcher.group();
+            if (!isWhiteFill(tag)) {
+                continue;
+            }
+            out.append(xml, last, matcher.start());
+            last = matcher.end();
+        }
+        out.append(xml.substring(last));
+        return out.toString();
+    }
+
+    private static boolean isWhiteFill(String shadingTag) {
+        Matcher fill = Pattern.compile("w:fill=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE).matcher(shadingTag);
+        if (!fill.find()) {
+            return false;
+        }
+        String color = fill.group(1).replace("#", "");
+        return "FFFFFF".equalsIgnoreCase(color) || "FFF".equalsIgnoreCase(color);
     }
 
     private static String resolveAlternate(String block) {

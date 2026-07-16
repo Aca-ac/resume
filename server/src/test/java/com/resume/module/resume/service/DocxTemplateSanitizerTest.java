@@ -4,6 +4,7 @@ import com.resume.module.resume.dto.TemplateRenderData;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -40,6 +41,25 @@ class DocxTemplateSanitizerTest {
         int after = count(cleaned, "{{name}}");
         assertTrue(before >= 2, "template has duplicate name placeholders");
         assertTrue(after <= 1, "should keep single name placeholder");
+    }
+
+    @Test
+    void stripWhiteRunShadingRemovesOnlyWhiteFill() {
+        String raw = "<w:rPr><w:shd w:val=\"clear\" w:fill=\"FFFFFF\"/>"
+                + "<w:shd w:val=\"clear\" w:fill=\"C0C0C0\"/><w:sz w:val=\"22\"/></w:rPr>";
+        String cleaned = DocxTemplateSanitizer.stripWhiteBackgrounds(raw);
+        assertFalse(cleaned.contains("FFFFFF"));
+        assertTrue(cleaned.contains("C0C0C0"));
+        assertTrue(cleaned.contains("w:sz"));
+    }
+
+    @Test
+    void sanitizeAndRenderCreativeRemovesWhiteRunShading() throws Exception {
+        byte[] docx = render("creative");
+        String xml = documentXml(docx);
+        assertFalse(Pattern.compile("<w:shd[^>]*w:fill=\"FFFFFF\"", Pattern.CASE_INSENSITIVE).matcher(xml).find());
+        assertTrue(xml.contains("某某大学") || xml.contains("本科"));
+        assertTrue(xml.contains("热爱编程"));
     }
 
     private byte[] render(String style) throws Exception {
